@@ -1,133 +1,82 @@
+
 body {
-  font-family: Arial, sans-serif;
-  background: #f4f4f4;
+  background-color: #f4f4f4;
   color: #222;
+  font-family: 'Segoe UI', sans-serif;
   margin: 0;
-  padding: 1rem;
+  padding: 0;
 }
 
-body.dark {
-  background: #121212;
+body.dark-mode {
+  background-color: #1e1e1e;
   color: #eee;
 }
 
-.container {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-  max-width: 900px;
-  margin: auto;
+.controls {
+  padding: 1rem;
+  background: #ddd;
+  display: flex;
+  gap: 1rem;
 }
 
-body.dark .container {
-  background: #1e1e1e;
+.container {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+.station-block {
+  margin-bottom: 2.5rem;
+}
+
+.station-block h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #444;
+}
+
+.station-block p {
+  margin: 0.3rem 0 1rem;
+  font-style: italic;
+  color: #666;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 1rem;
-  table-layout: fixed;
+  margin-bottom: 1rem;
 }
 
-th, td {
-  border: 1px solid #ccc;
-  padding: 10px;
-  word-break: break-word;
+table, th, td {
+  border: 1px solid #aaa;
 }
 
 th {
-  background-color: #dce6f1;
+  background: #f0c040;
   font-weight: bold;
-}
-
-body.dark th {
-  background-color: #2a2a2a;
-  color: #fff;
-}
-
-td[contenteditable="true"] {
-  background-color: #eef;
-}
-
-body.dark td[contenteditable="true"] {
-  background-color: #333;
-  color: #fff;
-}
-
-.controls {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  z-index: 1000;
-  background: rgba(255,255,255,0.8);
-  padding: 0.5rem;
-  border-radius: 8px;
-  box-shadow: 0 0 5px rgba(0,0,0,0.1);
-  margin-bottom: 10px;
-}
-
-body.dark .controls {
-  background: rgba(30,30,30,0.9);
-}
-
-button {
-  padding: 0.5rem 1rem;
-  margin-left: 5px;
-}
-
-.footer-fields {
-  margin-top: 2rem;
-}
-
-.footer-fields label {
-  display: block;
-  margin-top: 10px;
-  font-weight: bold;
-}
-
-.footer-fields input,
-.footer-fields textarea {
-  width: 100%;
+  text-align: left;
   padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
 }
 
-body.dark .footer-fields input,
-body.dark .footer-fields textarea {
-  background-color: #333;
-  color: #fff;
-  border: 1px solid #666;
+td {
+  padding: 8px;
 }
 
 td.editable {
-  background-color: #eef;
+  background: #eef;
 }
 
-body.dark td.editable {
-  background-color: #333;
-  color: #fff;
+body.dark-mode table, body.dark-mode th, body.dark-mode td {
+  border-color: #666;
 }
 
-/* Dölj endast i webbläsaren */
-.only-export {
-  display: none;
+body.dark-mode .container {
+  background: #2a2a2a;
 }
 
-/* Förhandsgranska ALLT i utskrift/export – om du någonsin använder print */
-@media print {
-  .only-export {
-    display: block;
-  }
-}
-
-#result h1,
-#result h2,
-#result p {
-  font-weight: bold;
-  font-size: 1.2em;
-  margin-top: 1em;
-  margin-bottom: 0.5em;
+body.dark-mode .editable {
+  background: #334;
 }
