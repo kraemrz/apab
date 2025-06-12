@@ -24,21 +24,21 @@ def parse():
     current_block = []
     found_first_table = False
 
+    table_counter = 0
     for el in all_elements:
         if el.name == "table":
-            if not found_first_table:
-                found_first_table = True
-                if current_block:
-                    export_only.extend(current_block)
-                    current_block = []
-            # Lägg till rubriken som hör till tabellen
-            heading = el.find_previous_sibling(["h1", "h2", "p"])
-            if heading:
-                tables.append(heading)
-            tables.append(el)
+            table_counter += 1
+            if table_counter <= 2:
+                export_only.append(el)  # De två första tabellerna ska döljas i webben
+            else:
+                # Lägg till rubrik före tabellen (om finns)
+                heading = el.find_previous_sibling(["h1", "h2", "p"])
+                if heading:
+                    tables.append(heading)
+                tables.append(el)
         else:
-            if not found_first_table:
-                current_block.append(el)
+            if table_counter < 2:
+                export_only.append(el)
 
     # Lägg in försättsblad & innehåll i wrapper
     hidden_div = soup.new_tag("div", attrs={"class": "only-export"})
@@ -47,7 +47,6 @@ def parse():
 
     result_html = str(hidden_div) + "".join([str(t) for t in tables])
     return jsonify({"html": result_html})
-
 
 
 @app.route("/export", methods=["POST"])
@@ -78,7 +77,11 @@ def export():
     # === Stationer med tabeller ===
     doc.add_page_break()
     for table in soup.find_all("table"):
-        prev = table.find_previous_sibling(["h1", "h2", "p"])
+        prev = None
+        for sibling in reversed(table.find_all_previous()):
+            if sibling.name in ["h1", "h2", "p"] and "station" in sibling.text.lower():
+                prev = sibling
+            break
         if prev:
             doc.add_paragraph(prev.text.strip(), style='Heading 2')
 
