@@ -1,0 +1,124 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  color: #222;
+  margin: 0;
+  padding: 1rem;
+}
+
+body.dark {
+  background: #121212;
+  color: #eee;
+}
+
+.container {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  max-width: 900px;
+  margin: auto;
+}
+
+body.dark .container {
+  background: #1e1e1e;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  table-layout: fixed;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  word-break: break-word;
+}
+
+th {
+  background-color: #dce6f1;
+  font-weight: bold;
+}
+
+body.dark th {
+  background-color: #2a2a2a;
+  color: #fff;
+}
+
+td[contenteditable="true"] {
+  background-color: #eef;
+}
+
+body.dark td[contenteditable="true"] {
+  background-color: #333;
+  color: #fff;
+}
+
+.controls {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  background: rgba(255,255,255,0.8);
+  padding: 0.5rem;
+  border-radius: 8px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.1);
+  margin-bottom: 10px;
+}
+
+body.dark .controls {
+  background: rgba(30,30,30,0.9);
+}
+
+button {
+  padding: 0.5rem 1rem;
+  margin-left: 5px;
+}
+
+.footer-fields {
+  margin-top: 2rem;
+}
+
+.footer-fields label {
+  display: block;
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+.footer-fields input,
+.footer-fields textarea {
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+body.dark .footer-fields input,
+body.dark .footer-fields textarea {
+  background-color: #333;
+  color: #fff;
+  border: 1px solid #666;
+}
+
+td.editable {
+  background-color: #eef;
+}
+
+body.dark td.editable {
+  background-color: #333;
+  color: #fff;
+}
+
+/* Dölj endast i webbläsaren */
+.only-export {
+  display: none;
+}
+
+/* Förhandsgranska ALLT i utskrift/export – om du någonsin använder print */
+@media print {
+  .only-export {
+    display: block;
+  }
+}

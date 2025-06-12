@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <title>Inspektionsprotokoll</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="controls">
+    <input type="file" id="upload" accept=".docx">
+    <button onclick="toggleDark()">🌙 Mörkt läge</button>
+    <button onclick="exportDoc()">💾 Spara Word/PDF</button>
+  </div>
+
+  <div class="container">
+    <div id="result">📝 Ladda upp ett dokument...</div>
+  </div>
+
+  <textarea id="full-content-html" style="display:none"></textarea>
+
+  <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
