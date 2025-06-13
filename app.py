@@ -7,6 +7,28 @@ import io, zipfile
 app = Flask(__name__)
 CORS(app)
 
+from flask import Flask, render_template, request, jsonify
+from docx import Document
+from docx.oxml.table import CT_Tbl
+from docx.oxml.text.paragraph import CT_P
+from docx.table import Table
+from docx.text.paragraph import Paragraph
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
+
+from flask import Flask, render_template, request, jsonify
+from docx import Document
+from docx.oxml.table import CT_Tbl
+from docx.oxml.text.paragraph import CT_P
+from docx.table import Table
+from docx.text.paragraph import Paragraph
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -22,12 +44,14 @@ def upload():
     current_section = None
     table_queue = doc.tables
 
+    # Flush-funktion för att spara föregående sektion
     def flush():
         nonlocal current_section
         if current_section:
             sections.append(current_section)
             current_section = None
 
+    # Iterera över alla paragrafer
     paragraphs = iter(doc.paragraphs)
     for para in paragraphs:
         text = para.text.strip()
@@ -36,7 +60,8 @@ def upload():
 
         lower = text.lower()
 
-        if lower.startswith("station") or lower == "övrigt" or lower.startswith("datum för utförd inspektion"):
+        # Hitta stationer och "Övrigt"
+        if lower.startswith("station") or lower == "övrigt":
             flush()
             current_section = {
                 "title": text,
@@ -45,6 +70,7 @@ def upload():
                 "na_only": False
             }
 
+            # Försök läsa in underrubrik eller "N/A"
             try:
                 next_para = next(paragraphs)
                 while not next_para.text.strip():
@@ -66,47 +92,54 @@ def upload():
 
     flush()
 
+    # Tilldela tabeller till sektioner
     table_index = 0
     for sec in sections:
         if not sec["na_only"] and table_index < len(table_queue):
             sec["table"] = table_queue[table_index]
             table_index += 1
 
-    html_blocks = []
+    # Konvertera Word-tabeller till listor av listor
     for sec in sections:
-        block = '<div class="station-block">'
-        block += f'<h2>{sec["title"]}</h2>'
-
-        if sec["subtitle"]:
-            block += f'<p>{sec["subtitle"]}</p>'
-
-        if sec["table"]:
+        if sec["table"] and hasattr(sec["table"], "rows"):
             table = sec["table"]
-            html_table = "<table><thead><tr>"
+            parsed_table = []
+            for row in table.rows:
+                parsed_row = [cell.text.strip() for cell in row.cells]
+                parsed_table.append(parsed_row)
+            sec["table"] = parsed_table
 
-            headers = [cell.text.strip() for cell in table.rows[0].cells]
-            for header in headers:
-                html_table += f"<th>{header}</th>"
-            html_table += "</tr></thead><tbody>"
+    # === Leta upp "Datum för utförd inspektion" och dess tabell ===
+    def iter_block_items(parent):
+        """
+        Gå igenom dokumentets innehåll (paragrafer och tabeller) i rätt ordning.
+        """
+        parent_element = parent.element.body
+        for child in parent_element.iterchildren():
+            if isinstance(child, CT_P):
+                yield Paragraph(child, parent)
+            elif isinstance(child, CT_Tbl):
+                yield Table(child, parent)
 
-            for row in table.rows[1:]:
-                html_table += "<tr>"
-                for i, cell in enumerate(row.cells):
-                    val = cell.text.strip()
-                    header = headers[i].lower()
-                    if header in ["kommentar", "datum", "signatur"]:
-                        html_table += f'<td contenteditable="true" class="editable">{val}</td>'
-                    else:
-                        html_table += f"<td>{val}</td>"
-                html_table += "</tr>"
+    found_datum_section = False
+    datum_info = ["", ""]
+    for block in iter_block_items(doc):
+        if isinstance(block, Paragraph) and "datum för utförd inspektion" in block.text.lower():
+            found_datum_section = True
+            continue
+        if found_datum_section and isinstance(block, Table):
+            if len(block.rows) >= 2 and len(block.rows[1].cells) >= 2:
+                datum_info = [
+                    block.rows[1].cells[0].text.strip(),
+                    block.rows[1].cells[1].text.strip()
+                ]
+                sections.append({
+                    "title": "Datum för utförd inspektion",
+                    "table": [["Datum", "Signatur"], datum_info]
+                })
+            break
 
-            html_table += "</tbody></table>"
-            block += html_table
-
-        block += "</div>"
-        html_blocks.append(block)
-
-    return jsonify({"html": "\n".join(html_blocks)})
+    return jsonify(sections)
 
 @app.route("/export", methods=["POST"])
 def export():
