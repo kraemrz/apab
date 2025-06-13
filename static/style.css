@@ -1,4 +1,5 @@
 
+/* === Grundinställningar === */
 body {
   background-color: #f4f4f4;
   color: #222;
@@ -12,6 +13,7 @@ body.dark-mode {
   color: #eee;
 }
 
+/* === Toppkontroller === */
 .controls {
   padding: 1rem;
   background: #ddd;
@@ -19,15 +21,21 @@ body.dark-mode {
   gap: 1rem;
 }
 
+/* === Innehållscontainer === */
 .container {
   max-width: 900px;
   margin: 2rem auto;
   padding: 2rem;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
+body.dark-mode .container {
+  background: #2a2a2a;
+}
+
+/* === Sektioner (Stationer) === */
 .station-block {
   margin-bottom: 2.5rem;
 }
@@ -44,6 +52,7 @@ body.dark-mode {
   color: #666;
 }
 
+/* === Tabeller === */
 table {
   width: 100%;
   border-collapse: collapse;
@@ -69,14 +78,21 @@ td.editable {
   background: #eef;
 }
 
-body.dark-mode table, body.dark-mode th, body.dark-mode td {
+body.dark-mode table,
+body.dark-mode th,
+body.dark-mode td {
   border-color: #666;
 }
 
-body.dark-mode .container {
-  background: #2a2a2a;
-}
-
-body.dark-mode .editable {
+body.dark-mode td.editable {
   background: #334;
 }
+
+/* === "N/A"-tabell === */
+.na-table {
+  background-color: #aca7a7;
+  text-align: left;
+  font-style: italic;
+  color: #222121;
+}
+

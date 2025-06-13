@@ -1,33 +1,20 @@
 from flask import Flask, render_template, request, jsonify, send_file
-from docx import Document
 from flask_cors import CORS
+from docx import Document
+from docx.oxml.table import CT_Tbl
+from docx.oxml.text.paragraph import CT_P
+from docx.table import Table
+from docx.text.paragraph import Paragraph
 from bs4 import BeautifulSoup
-import io, zipfile
+import pdfkit
+from PyPDF2 import PdfMerger
+from docx2pdf import convert
+import io, zipfile, tempfile, os
 
 app = Flask(__name__)
 CORS(app)
 
-from flask import Flask, render_template, request, jsonify
-from docx import Document
-from docx.oxml.table import CT_Tbl
-from docx.oxml.text.paragraph import CT_P
-from docx.table import Table
-from docx.text.paragraph import Paragraph
-from flask_cors import CORS
-
-app = Flask(__name__)
-CORS(app)
-
-from flask import Flask, render_template, request, jsonify
-from docx import Document
-from docx.oxml.table import CT_Tbl
-from docx.oxml.text.paragraph import CT_P
-from docx.table import Table
-from docx.text.paragraph import Paragraph
-from flask_cors import CORS
-
-app = Flask(__name__)
-CORS(app)
+TEMP_DOCX_PATH = os.path.join(tempfile.gettempdir(), "uploaded.docx")
 
 @app.route("/")
 def index():
@@ -38,6 +25,9 @@ def upload():
     file = request.files.get("file")
     if not file or not file.filename.endswith(".docx"):
         return "Invalid file", 400
+    
+    # spara filen till en temporär plats
+    file.save(TEMP_DOCX_PATH)
 
     doc = Document(file)
     sections = []
@@ -48,6 +38,9 @@ def upload():
     def flush():
         nonlocal current_section
         if current_section:
+            # Om sektionen inte har en tabell, lägg till en text N/A
+            if not current_section["table"]:
+                current_section["table"] = [["N/A"]]
             sections.append(current_section)
             current_section = None
 
@@ -80,12 +73,7 @@ def upload():
                 if next_text.lower() == "n/a":
                     current_section["subtitle"] = "N/A"
                     current_section["na_only"] = True
-                elif (
-                    not next_text.lower().startswith("station")
-                    and next_text.lower() not in ["datum för utförd inspektion", "övrigt"]
-                    and len(next_text.split()) < 5
-                    and not all(w in ["datum", "signatur"] for w in next_text.lower().split())
-                ):
+                else:
                     current_section["subtitle"] = next_text
             except StopIteration:
                 pass
@@ -146,58 +134,25 @@ def export():
     data = request.get_json()
     html = data.get("html", "")
 
-    soup = BeautifulSoup(html, "html.parser")
-    doc = Document()
+    # Lägg till valfritt CSS om du vill ha marginaler etc.
+    options = {
+        'encoding': 'utf-8',
+        'enable-local-file-access': None,
+        'page-size': 'A4',
+        'margin-top': '15mm',
+        'margin-bottom': '15mm',
+        'margin-left': '15mm',
+        'margin-right': '15mm'
+    }
 
-    doc.add_heading("Inspektionsprotokoll", 0)
-    doc.add_paragraph("Genererat från webbappen.")
+    # Ange rätt sökväg till wkhtmltopdf
+    config = pdfkit.configuration(wkhtmltopdf="C:/Program Files/wkhtmltopdf/bin/wkhtmltopdf.exe")
 
-    doc.add_page_break()
-    doc.add_heading("Innehållsförteckning", level=1)
-    index = [h2.text.strip() for h2 in soup.find_all("h2") if h2.text.strip()]
-    for item in index:
-        doc.add_paragraph(item, style="List Number")
+    html_pdf_path = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf").name
+    pdfkit.from_string(html, html_pdf_path, configuration=config, options=options)
 
-    doc.add_page_break()
-    for block in soup.find_all("div", class_="station-block"):
-        h2 = block.find("h2")
-        if h2:
-            doc.add_paragraph(h2.text.strip(), style="Heading 1")
-        p = block.find("p")
-        if p:
-            doc.add_paragraph(p.text.strip(), style="Heading 2")
+    return send_file(html_pdf_path, as_attachment=True, download_name="inspektionsprotokoll.pdf", mimetype="application/pdf")
 
-        table = block.find("table")
-        if not table:
-            continue
-
-        rows = table.find_all("tr")
-        if not rows:
-            continue
-
-        cols = rows[0].find_all(["td", "th"])
-        t = doc.add_table(rows=1, cols=len(cols))
-        t.style = "Table Grid"
-        hdr_cells = t.rows[0].cells
-        for i, cell in enumerate(cols):
-            hdr_cells[i].text = cell.get_text(strip=True)
-
-        for row in rows[1:]:
-            cells = row.find_all(["td", "th"])
-            row_cells = t.add_row().cells
-            for i in range(min(len(cells), len(row_cells))):
-                row_cells[i].text = cells[i].get_text(strip=True)
-
-        doc.add_paragraph()
-
-    buf = io.BytesIO()
-    doc.save(buf)
-    buf.seek(0)
-    zip_buf = io.BytesIO()
-    with zipfile.ZipFile(zip_buf, "w") as zipf:
-        zipf.writestr("inspektionsprotokoll.docx", buf.read())
-    zip_buf.seek(0)
-    return send_file(zip_buf, mimetype="application/zip", as_attachment=True, download_name="inspektionsprotokoll.zip")
 
 if __name__ == "__main__":
     app.run(debug=True)

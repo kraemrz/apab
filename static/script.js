@@ -22,11 +22,13 @@ document.getElementById("upload").addEventListener("change", function (e) {
         }
 
         if (section.table && section.table.length) {
-          html += "<table><tbody>";
+          // Check if the table is a "N/A" table
+          const isNATable = section.table.length === 1 && section.table[0].length === 1 && section.table[0][0] === "N/A";
+          html += `<table${isNATable ? ' class="na-table"' : ''}><tbody>`;
           section.table.forEach((row, rowIndex) => {
             html += "<tr>";
             row.forEach((cell, colIndex) => {
-              if (rowIndex === 0) {
+              if (rowIndex === 0 && !(isNATable && row.length === 1)) {
                 html += `<th>${cell}</th>`;
               } else if (section.title === "Datum för utförd inspektion") {
                 html += `<td contenteditable>${cell}</td>`;
@@ -41,8 +43,7 @@ document.getElementById("upload").addEventListener("change", function (e) {
             });
             html += "</tr>";
           });
-
-          html += "</tbody></table>";
+          html += "</table></tbody>";
         }
       }
 
