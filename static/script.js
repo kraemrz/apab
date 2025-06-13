@@ -67,24 +67,12 @@ function toggleDark() {
   document.body.classList.toggle("dark-mode");
 }
 
-function exportDoc() {
-  const html = document.getElementById("result").innerHTML;
 
-  fetch("/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ html }),
-  })
-    .then((res) => res.blob())
-    .then((blob) => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "inspektionsprotokoll.zip";
-      a.click();
-      window.URL.revokeObjectURL(url);
-    });
-}
+  document.getElementById("exportForm").addEventListener("submit", function(e) {
+  const html = document.getElementById("result").innerHTML;  // Justera selektor vid behov
+  document.getElementById("htmlInput").value = html;
+  });
+
 
 function updateStatus(cell) {
   const row = cell.parentElement;
@@ -97,3 +85,48 @@ function updateStatus(cell) {
   }
 }
 
+document.addEventListener("focusin", function (e) {
+  if (e.target.tagName === "TD" && e.target.hasAttribute("contenteditable")) {
+    // Delay krävs för att tabb ska fungera först
+    setTimeout(() => {
+      const range = document.createRange();
+      range.selectNodeContents(e.target);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }, 0);
+  }
+});
+
+document.addEventListener("keydown", function (e) {
+  const isEditable = e.target.tagName === "TD" && e.target.hasAttribute("contenteditable");
+
+  if (!isEditable) return;
+
+  // Ctrl + Enter → ny rad i cell
+  if (e.key === "Enter" && e.ctrlKey) {
+    e.preventDefault();
+    document.execCommand("insertLineBreak");
+    return;
+  }
+
+  // Enter (utan Ctrl/Shift) → hoppa till nästa rad
+  if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey) {
+    e.preventDefault();
+
+    const td = e.target;
+    const row = td.parentElement;
+    const table = row.closest("table");
+    const colIndex = Array.from(row.children).indexOf(td);
+    let nextRow = row.nextElementSibling;
+
+    while (nextRow) {
+      const nextCell = nextRow.children[colIndex];
+      if (nextCell && nextCell.hasAttribute("contenteditable")) {
+        nextCell.focus();
+        return;
+      }
+      nextRow = nextRow.nextElementSibling;
+    }
+  }
+});

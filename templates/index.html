@@ -7,13 +7,22 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <div class="controls">
+<div class="controls">
+  <div class="left">
     <input type="file" id="upload" accept=".docx">
-    <button onclick="toggleDark()">🌙 Mörkt läge</button>
-    <button onclick="exportDoc()">💾 Spara Word/PDF</button>
   </div>
-  <div class="container">
-    <div id="result">📝 Ladda upp ett dokument...</div>
+  
+  <div class="right">
+    <form id="exportForm" method="POST" action="/export-word" style="display: inline;">
+    <input type="hidden" name="html" id="htmlInput" />
+    <button type="submit">💾 Spara Word</button>
+    </form>
+    <button onclick="toggleDark()">🌙 Mörkt läge</button>
+  </div>
+</div>
+
+<div class="container">
+  <div id="result">📝 Ladda upp ett dokument...</div>
   </div>
   <textarea id="full-content-html" style="display:none"></textarea>
   <script src="{{ url_for('static', filename='script.js') }}"></script>

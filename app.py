@@ -5,11 +5,14 @@ from docx.oxml.table import CT_Tbl
 from docx.oxml.text.paragraph import CT_P
 from docx.table import Table
 from docx.text.paragraph import Paragraph
+from docx.shared import Inches
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.enum.table import WD_TABLE_ALIGNMENT
 from bs4 import BeautifulSoup
-import pdfkit
-from PyPDF2 import PdfMerger
-from docx2pdf import convert
-import io, zipfile, tempfile, os
+import tempfile, os
+from io import BytesIO
+
 
 app = Flask(__name__)
 CORS(app)
@@ -87,14 +90,22 @@ def upload():
             sec["table"] = table_queue[table_index]
             table_index += 1
 
-    # Konvertera Word-tabeller till listor av listor
+    # Konvertera Word-tabeller till listor av listor, och ta bort tomma slutrader
     for sec in sections:
         if sec["table"] and hasattr(sec["table"], "rows"):
             table = sec["table"]
             parsed_table = []
+
             for row in table.rows:
                 parsed_row = [cell.text.strip() for cell in row.cells]
                 parsed_table.append(parsed_row)
+
+            # Ta bort sista raden om alla celler är tomma
+            if parsed_table:
+                last_row = parsed_table[-1]
+                if all(cell == "" for cell in last_row):
+                    parsed_table.pop()
+
             sec["table"] = parsed_table
 
     # === Leta upp "Datum för utförd inspektion" och dess tabell ===
@@ -132,29 +143,71 @@ def upload():
 
     return jsonify(sections)
 
-@app.route("/export", methods=["POST"])
-def export():
-    data = request.get_json()
-    html = data.get("html", "")
+@app.route("/export-word", methods=["POST"])
+def export_word():
+    html_content = request.form.get("html")
+    soup = BeautifulSoup(html_content, "html.parser")
 
-    # Lägg till valfritt CSS om du vill ha marginaler etc.
-    options = {
-        'encoding': 'utf-8',
-        'enable-local-file-access': None,
-        'page-size': 'A4',
-        'margin-top': '15mm',
-        'margin-bottom': '15mm',
-        'margin-left': '15mm',
-        'margin-right': '15mm'
-    }
+    document = Document()
+    section = document.sections[0]
+    section.page_width = Inches(8.27)
+    section.page_height = Inches(11.69)
 
-    # Ange rätt sökväg till wkhtmltopdf
-    config = pdfkit.configuration(wkhtmltopdf="C:/Program Files/wkhtmltopdf/bin/wkhtmltopdf.exe")
+    for elem in soup.find_all(["h2", "p", "table"]):
+        if elem.name == "h2":
+            document.add_heading(elem.get_text(), level=2)
+        elif elem.name == "p":
+            p = document.add_paragraph()
+            run = p.add_run(elem.get_text())
+            run.italic = True
+        elif elem.name == "table":
+            rows = elem.find_all("tr")
+            if not rows:
+                continue
 
-    html_pdf_path = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf").name
-    pdfkit.from_string(html, html_pdf_path, configuration=config, options=options)
+            num_cols = len(rows[0].find_all(["td", "th"]))
+            table = document.add_table(rows=len(rows), cols=num_cols)
+            table.alignment = WD_TABLE_ALIGNMENT.LEFT
+            table.style = "Table Grid"
 
-    return send_file(html_pdf_path, as_attachment=True, download_name="inspektionsprotokoll.pdf", mimetype="application/pdf")
+            for i, row in enumerate(rows):
+                cells = row.find_all(["td", "th"])
+                for j, cell in enumerate(cells):
+                    text = cell.get_text().strip()
+                    cell_obj = table.cell(i, j)
+                    cell_obj.text = text
+
+                    # Header-rad
+                    if i == 0:
+                        for run in cell_obj.paragraphs[0].runs:
+                            run.bold = True
+                        shading_elm = OxmlElement('w:shd')
+                        shading_elm.set(qn('w:fill'), 'F0C040')  # gul bakgrund
+                        cell_obj._tc.get_or_add_tcPr().append(shading_elm)
+
+                    # Kommentar-kolumn (index 2)
+                    elif j == 2:
+                        shading_elm = OxmlElement('w:shd')
+                        shading_elm.set(qn('w:fill'), 'DDEEFF')  # ljusblå
+                        cell_obj._tc.get_or_add_tcPr().append(shading_elm)
+
+            # Justera kolumnbredder om 3 kolumner (status / åtgärd / kommentar)
+            if num_cols == 3:
+                widths = [Inches(1.3), Inches(3.7), Inches(3.7)]
+                for i, width in enumerate(widths):
+                    for row in table.rows:
+                        row.cells[i].width = width
+
+    doc_io = BytesIO()
+    document.save(doc_io)
+    doc_io.seek(0)
+
+    return send_file(
+        doc_io,
+        as_attachment=True,
+        download_name="inspektionsprotokoll.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
 
 
 if __name__ == "__main__":

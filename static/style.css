@@ -15,11 +15,29 @@ body.dark-mode {
 
 /* === Toppkontroller === */
 .controls {
-  padding: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
   background: #ddd;
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #bbb;
+}
+
+body.dark-mode .controls {
+  background: #333;
+  border-color: #555;
+}
+
+.controls .left,
+.controls .right {
+  display: flex;
+  align-items: center;
   gap: 1rem;
 }
+
 
 /* === Innehållscontainer === */
 .container {

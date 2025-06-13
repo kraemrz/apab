@@ -2,7 +2,3 @@ flask
 flask-cors
 python-docx
 beautifulsoup4
-weasyprint
-PyPDF2
-docx2pdf
-pdfkit
