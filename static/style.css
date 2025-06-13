@@ -96,3 +96,16 @@ body.dark-mode td.editable {
   color: #222121;
 }
 
+table colgroup col.col-status {
+  width: 15%;
+}
+table colgroup col.col-action,
+table colgroup col.col-comment {
+  width: 42.5%;
+}
+
+td[contenteditable] {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+

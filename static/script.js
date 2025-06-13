@@ -12,29 +12,40 @@ document.getElementById("upload").addEventListener("change", function (e) {
   })
     .then((res) => res.json())
     .then((data) => {
-      let html = "";
+    let html = "";
 
-      for (const section of data) {
-        html += `<h2>${section.title}</h2>`;
+    for (const section of data) {
+      html += `<h2>${section.title}</h2>`;
 
-        if (section.subtitle && section.subtitle !== "N/A") {
-          html += `<p><em>${section.subtitle}</em></p>`;
-        }
+      if (section.subtitle && section.subtitle !== "N/A") {
+        html += `<p><em>${section.subtitle}</em></p>`;
+      }
 
-        if (section.table && section.table.length) {
-          // Check if the table is a "N/A" table
-          const isNATable = section.table.length === 1 && section.table[0].length === 1 && section.table[0][0] === "N/A";
-          html += `<table${isNATable ? ' class="na-table"' : ''}><tbody>`;
+      if (section.table && section.table.length) {
+        const isNATable = section.table.length === 1 && section.table[0].length === 1 && section.table[0][0] === "N/A";
+        const isStandard3Cols = section.table[0].length === 3;
+
+        if (isNATable) {
+          html += `<table class="na-table"><tbody><tr><td>N/A</td></tr></tbody></table>`;
+        } else {
+          html += `<table>`;
+          if (isStandard3Cols) {
+            html += `<colgroup>
+              <col class="col-status" />
+              <col class="col-action" />
+              <col class="col-comment" />
+            </colgroup>`;
+          }
+          html += `<tbody>`;
           section.table.forEach((row, rowIndex) => {
             html += "<tr>";
             row.forEach((cell, colIndex) => {
-              if (rowIndex === 0 && !(isNATable && row.length === 1)) {
+              if (rowIndex === 0) {
                 html += `<th>${cell}</th>`;
-              } else if (section.title === "Datum för utförd inspektion") {
+              } else if (section.title === "Datum för utförd inspektion" || section.title === "DATE & SIGNATURE") {
                 html += `<td contenteditable>${cell}</td>`;
               } else {
                 if (colIndex === 2) {
-                  // Kommentar-fältet – redigerbart med live-uppdatering
                   html += `<td contenteditable oninput="updateStatus(this)">${cell}</td>`;
                 } else {
                   html += `<td>${cell}</td>`;
@@ -43,12 +54,13 @@ document.getElementById("upload").addEventListener("change", function (e) {
             });
             html += "</tr>";
           });
-          html += "</table></tbody>";
+          html += "</tbody></table>";
         }
       }
+    }
 
-      document.getElementById("result").innerHTML = html;
-    });
+    document.getElementById("result").innerHTML = html;
+  });
 });
 
 function toggleDark() {
@@ -84,3 +96,4 @@ function updateStatus(cell) {
     statusCell.textContent = "Anm.";
   }
 }
+

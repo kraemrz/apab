@@ -112,7 +112,10 @@ def upload():
     found_datum_section = False
     datum_info = ["", ""]
     for block in iter_block_items(doc):
-        if isinstance(block, Paragraph) and "datum för utförd inspektion" in block.text.lower():
+        if isinstance(block, Paragraph) and (
+            "datum för utförd inspektion" in block.text.lower() or
+            "date & signature" in block.text.lower()
+        ):
             found_datum_section = True
             continue
         if found_datum_section and isinstance(block, Table):
