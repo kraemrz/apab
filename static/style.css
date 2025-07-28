@@ -127,3 +127,19 @@ td[contenteditable] {
   word-break: break-word;
 }
 
+#drop-zone {
+  border: 2px dashed #888;
+  background: #f9f9f9;
+  color: #333;
+  padding: 1rem;
+  margin: 1rem;
+  text-align: center;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+#drop-zone.dragover {
+  background: #e0ffe0;
+  border-color: #2c2;
+}

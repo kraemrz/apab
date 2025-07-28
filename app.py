@@ -9,6 +9,7 @@ from docx.shared import Inches
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from bs4 import BeautifulSoup
 import tempfile, os
 from io import BytesIO
@@ -143,7 +144,37 @@ def upload():
 
     return jsonify(sections)
 
+
+def add_table_of_contents(document, heading_text="Innehåll"):
+    # Rubrik
+    document.add_heading(heading_text, level=1)
+
+    # TOC-fält
+    paragraph = document.add_paragraph()
+    run = paragraph.add_run()
+    
+    fldChar_begin = OxmlElement('w:fldChar')
+    fldChar_begin.set(qn('w:fldCharType'), 'begin')
+
+    instrText = OxmlElement('w:instrText')
+    instrText.set(qn('xml:space'), 'preserve')
+    instrText.text = 'TOC \\o "1-3" \\h \\z \\u'
+
+    fldChar_separate = OxmlElement('w:fldChar')
+    fldChar_separate.set(qn('w:fldCharType'), 'separate')
+
+    fldChar_end = OxmlElement('w:fldChar')
+    fldChar_end.set(qn('w:fldCharType'), 'end')
+
+    run._r.append(fldChar_begin)
+    run._r.append(instrText)
+    run._r.append(fldChar_separate)
+    run._r.append(fldChar_end)
+
+    paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
+
 @app.route("/export-word", methods=["POST"])
+
 def export_word():
     html_content = request.form.get("html")
     soup = BeautifulSoup(html_content, "html.parser")
@@ -152,6 +183,14 @@ def export_word():
     section = document.sections[0]
     section.page_width = Inches(8.27)
     section.page_height = Inches(11.69)
+
+    # Kontrollera språk baserat på rubrik eller innehåll
+    language = "sv" if "Station" in html_content or "Datum för utförd inspektion" in html_content else "en"
+
+    heading_text = "Innehåll" if language == "sv" else "Index"
+    add_table_of_contents(document, heading_text)
+    document.add_page_break()
+
 
     for elem in soup.find_all(["h2", "p", "table"]):
         if elem.name == "h2":
