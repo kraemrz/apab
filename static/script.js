@@ -34,6 +34,11 @@ function uploadFile(file) {
   const formData = new FormData();
   formData.append("file", file);
 
+  // START 🟡 Sätt filnamn (utan filändelse) i hidden input för export
+  const baseFileName = file.name.replace(/\.[^/.]+$/, ""); // tar bort .docx eller .pdf
+  document.getElementById("filenameInput").value = baseFileName;
+  // SLUT 🟡
+  
   fetch("/upload", {
     method: "POST",
     body: formData,
@@ -102,6 +107,8 @@ document.getElementById("exportForm").addEventListener("submit", function (e) {
   const html = document.getElementById("result").innerHTML;
   document.getElementById("htmlInput").value = html;
 });
+
+
 
 // === Mörkt läge ===
 function toggleDark() {

@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_cors import CORS
 from docx import Document
@@ -9,16 +10,54 @@ from docx.shared import Inches
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT, WD_ALIGN_PARAGRAPH
+
 from bs4 import BeautifulSoup
 import tempfile, os
 from io import BytesIO
-
+import re
 
 app = Flask(__name__)
 CORS(app)
 
 TEMP_DOCX_PATH = os.path.join(tempfile.gettempdir(), "uploaded.docx")
+
+# Funktion för att tolka filnamn och extrahera metadata
+def parse_filename(filename):
+    filename = filename.replace("MALL", "").strip()
+
+    if "Inspektionsprotokoll" in filename:
+        language = "sv"
+        kund_match = re.search(r"Inspektionsprotokoll (.*?) M(\d+)", filename)
+        period_match = re.search(r"(\d+)\s*månader?", filename, re.IGNORECASE)
+        maskin_match = re.search(r"M\d+", filename)
+
+        customer = kund_match.group(1).strip() if kund_match else "Unknown"
+        machine = "M" + kund_match.group(2) if kund_match else (maskin_match.group(0) if maskin_match else "M000000")
+        period = period_match.group(1) if period_match else "?"
+        title = f"Inspektionsprotokoll {period} månader"
+
+    elif "Inspection" in filename:
+        language = "en"
+        kund_match = re.search(r"Inspection\s+([A-Za-z]+)\s+.*?M(\d+)", filename)
+        period_match = re.search(r"(\d+)[-\s]*month", filename, re.IGNORECASE)
+        maskin_match = re.search(r"M\d+", filename)
+
+        customer = kund_match.group(1).strip() if kund_match else "Unknown"
+        machine = "M" + kund_match.group(2) if kund_match else (maskin_match.group(0) if maskin_match else "M000000")
+        period = period_match.group(1) if period_match else "?"
+        title = f"Inspection protocol {period}-month"
+
+    else:
+        return None  # Ingen match
+
+    return {
+        "customer": customer,
+        "machine": machine,
+        "title": title,
+        "language": language
+    }
+
 
 @app.route("/")
 def index():
@@ -177,12 +216,49 @@ def add_table_of_contents(document, heading_text="Innehåll"):
 
 def export_word():
     html_content = request.form.get("html")
+    ### 2 rader lagt till här
+    filename = request.form.get("filename", "")  # du skickar in detta från frontend
+    parsed = parse_filename(filename)
+    ### slutar här
     soup = BeautifulSoup(html_content, "html.parser")
 
     document = Document()
     section = document.sections[0]
     section.page_width = Inches(8.27)
     section.page_height = Inches(11.69)
+
+    # Lägg till logotyp högst upp till höger
+    logo_path = "static/images/apab_logo.png"  # Flytta bilden till denna plats
+    p = document.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    run = p.add_run()
+    run.add_picture(logo_path, width=Inches(1.5))  # justerbar storlek
+    
+    ### START Förstasida – om match finns
+    if parsed:
+        title = parsed["title"]
+        machine = parsed["machine"]
+        customer = parsed["customer"]
+
+        # Lägg till 5 radbrytningar
+        for _ in range(5):
+            document.add_paragraph("")
+        
+        document.add_paragraph("", style="Normal")  # spacing
+        document.add_paragraph(title, style="Title").alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        p = document.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.add_run(f"Maskinnummer: {machine}\n").bold = True
+        p.add_run(f"Kund: {customer}")
+
+        document.add_page_break()
+        language = parsed["language"]
+    else:
+        # fallback om inget matchas
+        language = "sv" if "Station" in html_content or "Datum för utförd inspektion" in html_content else "en"
+
+    ### SLUT
 
     # Kontrollera språk baserat på rubrik eller innehåll
     language = "sv" if "Station" in html_content or "Datum för utförd inspektion" in html_content else "en"
@@ -241,10 +317,17 @@ def export_word():
     document.save(doc_io)
     doc_io.seek(0)
 
+    if parsed and parsed["language"] == "sv":
+        filename = f"Inspektionsprotokoll {parsed['customer']} {parsed['machine']} - {parsed['title'].removeprefix('Inspektionsprotokoll').strip()} {datetime.now().strftime('%Y-%m-%d')}.docx"
+    elif parsed and parsed["language"] == "en":
+        filename = f"Inspection protocol {parsed['customer']} {parsed['machine']} - {parsed['title'].removeprefix('Inspection').strip()} {datetime.now().strftime('%Y-%m-%d')}.docx"
+    else:
+        filename = "inspection_protocol.docx"
+    
     return send_file(
         doc_io,
         as_attachment=True,
-        download_name="inspektionsprotokoll.docx",
+        download_name=filename,
         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
