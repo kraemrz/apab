@@ -1,336 +1,171 @@
-from datetime import datetime
+import os
+import re
 from flask import Flask, render_template, request, jsonify, send_file
-from flask_cors import CORS
+from werkzeug.utils import secure_filename
 from docx import Document
-from docx.oxml.table import CT_Tbl
-from docx.oxml.text.paragraph import CT_P
 from docx.table import Table
 from docx.text.paragraph import Paragraph
-from docx.shared import Inches
+from docx.oxml.text.paragraph import CT_P
+from docx.oxml.table import CT_Tbl
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT, WD_ALIGN_PARAGRAPH
-
 from bs4 import BeautifulSoup
-import tempfile, os
 from io import BytesIO
-import re
+from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)
+app.config['UPLOAD_FOLDER'] = 'uploads'
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-TEMP_DOCX_PATH = os.path.join(tempfile.gettempdir(), "uploaded.docx")
+TRANSLATIONS = {
+    'sv': { 'toc_title': 'Innehåll', 'report_title': 'Inspektionsprotokoll', 'keywords': ['status', 'åtgärd', 'kommentar', 'signatur'] },
+    'en': { 'toc_title': 'Table of Contents', 'report_title': 'Inspection Report', 'keywords': ['results', 'description', 'comment', 'signature'] }
+}
 
-# Funktion för att tolka filnamn och extrahera metadata
-def parse_filename(filename):
-    filename = filename.replace("MALL", "").strip()
+def parse_filename_for_info(filename, lang):
+    try:
+        prefix = TRANSLATIONS[lang]['report_title']
+        clean_name = filename.lower().replace('.docx', '').replace('_mall', '')
+        if clean_name.startswith(prefix.lower()):
+            clean_name = clean_name[len(prefix):].strip()
+        
+        match = re.search(r'(m\d{6})', clean_name)
+        if match:
+            machine = match.group(1).upper()
+            customer_raw = clean_name[:match.start()]
+            customer = customer_raw.replace('_', ' ').replace('-', ' ').strip().title()
+            return customer if customer else "Okänd Kund", machine
+    except Exception as e:
+        print(f"Error parsing filename: {e}")
+    return "Okänd Kund", "Okänd Maskin"
 
-    if "Inspektionsprotokoll" in filename:
-        language = "sv"
-        kund_match = re.search(r"Inspektionsprotokoll (.*?) M(\d+)", filename)
-        period_match = re.search(r"(\d+)\s*månader?", filename, re.IGNORECASE)
-        maskin_match = re.search(r"M\d+", filename)
+def set_cell_shade(cell, shade):
+    tcPr = cell._tc.get_or_add_tcPr()
+    shd = OxmlElement('w:shd'); shd.set(qn('w:val'), 'clear'); shd.set(qn('w:fill'), shade)
+    tcPr.append(shd)
 
-        customer = kund_match.group(1).strip() if kund_match else "Unknown"
-        machine = "M" + kund_match.group(2) if kund_match else (maskin_match.group(0) if maskin_match else "M000000")
-        period = period_match.group(1) if period_match else "?"
-        title = f"Inspektionsprotokoll {period} månader"
+def add_table_of_contents(document, toc_title):
+    document.add_heading(toc_title, level=1)
+    paragraph = document.add_paragraph(); run = paragraph.add_run()
+    fldChar_begin = OxmlElement('w:fldChar'); fldChar_begin.set(qn('w:fldCharType'), 'begin')
+    instrText = OxmlElement('w:instrText'); instrText.set(qn('xml:space'), 'preserve'); instrText.text = 'TOC \\o "2-2" \\h \\z \\u'
+    fldChar_separate = OxmlElement('w:fldChar'); fldChar_separate.set(qn('w:fldCharType'), 'separate')
+    fldChar_end = OxmlElement('w:fldChar'); fldChar_end.set(qn('w:fldCharType'), 'end')
+    run._r.extend([fldChar_begin, instrText, fldChar_separate, fldChar_end])
 
-    elif "Inspection" in filename:
-        language = "en"
-        kund_match = re.search(r"Inspection\s+([A-Za-z]+)\s+.*?M(\d+)", filename)
-        period_match = re.search(r"(\d+)[-\s]*month", filename, re.IGNORECASE)
-        maskin_match = re.search(r"M\d+", filename)
+def detect_language_from_doc(document):
+    text_content = [cell.text.lower() for table in document.tables for row in table.rows for cell in row.cells]
+    full_text = " ".join(text_content)
+    return 'en' if any(keyword in full_text for keyword in TRANSLATIONS['en']['keywords']) else 'sv'
 
-        customer = kund_match.group(1).strip() if kund_match else "Unknown"
-        machine = "M" + kund_match.group(2) if kund_match else (maskin_match.group(0) if maskin_match else "M000000")
-        period = period_match.group(1) if period_match else "?"
-        title = f"Inspection protocol {period}-month"
-
-    else:
-        return None  # Ingen match
-
-    return {
-        "customer": customer,
-        "machine": machine,
-        "title": title,
-        "language": language
-    }
-
-
-@app.route("/")
+@app.route('/')
 def index():
-    return render_template("index.html")
+    return render_template('index.html')
 
-@app.route("/upload", methods=["POST"])
-def upload():
-    file = request.files.get("file")
-    if not file or not file.filename.endswith(".docx"):
-        return "Invalid file", 400
-    
-    # spara filen till en temporär plats
-    file.save(TEMP_DOCX_PATH)
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files: return jsonify({"error": "No file part"}), 400
+    file = request.files['file']
+    if not file.filename: return jsonify({"error": "No selected file"}), 400
 
-    doc = Document(file)
-    sections = []
-    current_section = None
-    table_queue = doc.tables
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
 
-    # Flush-funktion för att spara föregående sektion
-    def flush():
-        nonlocal current_section
-        if current_section:
-            # Om sektionen inte har en tabell, lägg till en text N/A
-            if not current_section["table"]:
-                current_section["table"] = [["N/A"]]
-            sections.append(current_section)
-            current_section = None
-
-    # Iterera över alla paragrafer
-    paragraphs = iter(doc.paragraphs)
-    for para in paragraphs:
-        text = para.text.strip()
-        if not text:
-            continue
-
-        lower = text.lower()
-
-        # Hitta stationer och "Övrigt"
-        if lower.startswith("station") or lower == "övrigt":
-            flush()
-            current_section = {
-                "title": text,
-                "subtitle": "",
-                "table": None,
-                "na_only": False
-            }
-
-            # Försök läsa in underrubrik eller "N/A"
-            try:
-                next_para = next(paragraphs)
-                while not next_para.text.strip():
-                    next_para = next(paragraphs)
-                next_text = next_para.text.strip()
-
-                if next_text.lower() == "n/a":
-                    current_section["subtitle"] = "N/A"
-                    current_section["na_only"] = True
-                else:
-                    current_section["subtitle"] = next_text
-            except StopIteration:
-                pass
-
-    flush()
-
-    # Tilldela tabeller till sektioner
-    table_index = 0
-    for sec in sections:
-        if not sec["na_only"] and table_index < len(table_queue):
-            sec["table"] = table_queue[table_index]
-            table_index += 1
-
-    # Konvertera Word-tabeller till listor av listor, och ta bort tomma slutrader
-    for sec in sections:
-        if sec["table"] and hasattr(sec["table"], "rows"):
-            table = sec["table"]
-            parsed_table = []
-
-            for row in table.rows:
-                parsed_row = [cell.text.strip() for cell in row.cells]
-                parsed_table.append(parsed_row)
-
-            # Ta bort sista raden om alla celler är tomma
-            if parsed_table:
-                last_row = parsed_table[-1]
-                if all(cell == "" for cell in last_row):
-                    parsed_table.pop()
-
-            sec["table"] = parsed_table
-
-    # === Leta upp "Datum för utförd inspektion" och dess tabell ===
-    def iter_block_items(parent):
-        """
-        Gå igenom dokumentets innehåll (paragrafer och tabeller) i rätt ordning.
-        """
-        parent_element = parent.element.body
-        for child in parent_element.iterchildren():
+    try:
+        doc = Document(filepath)
+        detected_lang = detect_language_from_doc(doc)
+        customer, machine = parse_filename_for_info(filename, detected_lang)
+        
+        blocks = []
+        for child in doc.element.body:
             if isinstance(child, CT_P):
-                yield Paragraph(child, parent)
+                p = Paragraph(child, doc)
+                text = p.text.strip()
+                if text and text.lower() != 'dokumentidentitet':
+                    blocks.append({"type": "paragraph", "text": text})
             elif isinstance(child, CT_Tbl):
-                yield Table(child, parent)
+                t = Table(child, doc)
+                table_data = [[cell.text.strip() for cell in row.cells] for row in t.rows]
+                blocks.append({"type": "table", "data": table_data})
 
-    found_datum_section = False
-    datum_info = ["", ""]
-    for block in iter_block_items(doc):
-        if isinstance(block, Paragraph) and (
-            "datum för utförd inspektion" in block.text.lower() or
-            "date & signature" in block.text.lower()
-        ):
-            found_datum_section = True
-            continue
-        if found_datum_section and isinstance(block, Table):
-            if len(block.rows) >= 2 and len(block.rows[1].cells) >= 2:
-                datum_info = [
-                    block.rows[1].cells[0].text.strip(),
-                    block.rows[1].cells[1].text.strip()
-                ]
-                sections.append({
-                    "title": "Datum för utförd inspektion",
-                    "table": [["Datum", "Signatur"], datum_info]
-                })
-            break
+        return jsonify({"blocks": blocks, "lang": detected_lang, "customer": customer, "machine": machine})
 
-    return jsonify(sections)
-
-
-def add_table_of_contents(document, heading_text="Innehåll"):
-    # Rubrik
-    document.add_heading(heading_text, level=1)
-
-    # TOC-fält
-    paragraph = document.add_paragraph()
-    run = paragraph.add_run()
-    
-    fldChar_begin = OxmlElement('w:fldChar')
-    fldChar_begin.set(qn('w:fldCharType'), 'begin')
-
-    instrText = OxmlElement('w:instrText')
-    instrText.set(qn('xml:space'), 'preserve')
-    instrText.text = 'TOC \\o "1-3" \\h \\z \\u'
-
-    fldChar_separate = OxmlElement('w:fldChar')
-    fldChar_separate.set(qn('w:fldCharType'), 'separate')
-
-    fldChar_end = OxmlElement('w:fldChar')
-    fldChar_end.set(qn('w:fldCharType'), 'end')
-
-    run._r.append(fldChar_begin)
-    run._r.append(instrText)
-    run._r.append(fldChar_separate)
-    run._r.append(fldChar_end)
-
-    paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"error": f"Failed to process document: {e}"}), 500
+    finally:
+        if os.path.exists(filepath):
+            os.remove(filepath)
 
 @app.route("/export-word", methods=["POST"])
+def export_to_word():
+    lang = request.form.get('lang', 'sv')
+    html_content = request.form.get("html", "")
+    inspection_date = request.form.get('inspection_date', datetime.now().strftime('%Y-%m-%d'))
+    customer = request.form.get('customer', 'Okänd Kund')
+    machine = request.form.get('machine', 'Okänd Maskin')
 
-def export_word():
-    html_content = request.form.get("html")
-    ### 2 rader lagt till här
-    filename = request.form.get("filename", "")  # du skickar in detta från frontend
-    parsed = parse_filename(filename)
-    ### slutar här
     soup = BeautifulSoup(html_content, "html.parser")
-
     document = Document()
-    section = document.sections[0]
-    section.page_width = Inches(8.27)
-    section.page_height = Inches(11.69)
-
-    # Lägg till logotyp högst upp till höger
-    logo_path = "static/images/apab_logo.png"  # Flytta bilden till denna plats
-    p = document.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    run = p.add_run()
-    run.add_picture(logo_path, width=Inches(1.5))  # justerbar storlek
     
-    ### START Förstasida – om match finns
-    if parsed:
-        title = parsed["title"]
-        machine = parsed["machine"]
-        customer = parsed["customer"]
-
-        # Lägg till 5 radbrytningar
-        for _ in range(5):
-            document.add_paragraph("")
-        
-        document.add_paragraph("", style="Normal")  # spacing
-        document.add_paragraph(title, style="Title").alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-        p = document.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.add_run(f"Maskinnummer: {machine}\n").bold = True
-        p.add_run(f"Kund: {customer}")
-
-        document.add_page_break()
-        language = parsed["language"]
-    else:
-        # fallback om inget matchas
-        language = "sv" if "Station" in html_content or "Datum för utförd inspektion" in html_content else "en"
-
-    ### SLUT
-
-    # Kontrollera språk baserat på rubrik eller innehåll
-    language = "sv" if "Station" in html_content or "Datum för utförd inspektion" in html_content else "en"
-
-    heading_text = "Innehåll" if language == "sv" else "Index"
-    add_table_of_contents(document, heading_text)
+    # STEG 1: SKAPA FÖRSTASIDAN
+    document.add_picture("static/images/apab_logo.png", width=Inches(3.0))
+    p = document.add_paragraph(); p.add_run(TRANSLATIONS[lang]['report_title']).bold = True
+    p.runs[0].font.size = Pt(24); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    document.add_paragraph()
+    
+    info_table = document.add_table(rows=3, cols=2)
+    info_table.columns[0].width = Inches(1.5); info_table.columns[1].width = Inches(4.5)
+    
+    cell_label_c = info_table.cell(0, 0).paragraphs[0]; cell_label_c.add_run('Kund:').bold = True; cell_label_c.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    info_table.cell(0, 1).text = customer
+    cell_label_m = info_table.cell(1, 0).paragraphs[0]; cell_label_m.add_run('Maskin:').bold = True; cell_label_m.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    info_table.cell(1, 1).text = machine
+    cell_label_d = info_table.cell(2, 0).paragraphs[0]; cell_label_d.add_run('Inspektionsdatum:').bold = True; cell_label_d.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    info_table.cell(2, 1).text = inspection_date
     document.add_page_break()
 
+    # STEG 2: SKAPA INNEHÅLLSFÖRTECKNING
+    add_table_of_contents(document, TRANSLATIONS[lang]['toc_title'])
+    document.add_page_break()
 
-    for elem in soup.find_all(["h2", "p", "table"]):
-        if elem.name == "h2":
-            document.add_heading(elem.get_text(), level=2)
-        elif elem.name == "p":
-            p = document.add_paragraph()
-            run = p.add_run(elem.get_text())
-            run.italic = True
-        elif elem.name == "table":
-            rows = elem.find_all("tr")
-            if not rows:
-                continue
-
-            num_cols = len(rows[0].find_all(["td", "th"]))
-            table = document.add_table(rows=len(rows), cols=num_cols)
-            table.alignment = WD_TABLE_ALIGNMENT.LEFT
-            table.style = "Table Grid"
-
-            for i, row in enumerate(rows):
-                cells = row.find_all(["td", "th"])
-                for j, cell in enumerate(cells):
-                    text = cell.get_text().strip()
-                    cell_obj = table.cell(i, j)
-                    cell_obj.text = text
-
-                    # Header-rad
-                    if i == 0:
-                        for run in cell_obj.paragraphs[0].runs:
-                            run.bold = True
-                        shading_elm = OxmlElement('w:shd')
-                        shading_elm.set(qn('w:fill'), 'F0C040')  # gul bakgrund
-                        cell_obj._tc.get_or_add_tcPr().append(shading_elm)
-
-                    # Kommentar-kolumn (index 2)
-                    elif j == 2:
-                        shading_elm = OxmlElement('w:shd')
-                        shading_elm.set(qn('w:fill'), 'DDEEFF')  # ljusblå
-                        cell_obj._tc.get_or_add_tcPr().append(shading_elm)
-
-            # Justera kolumnbredder om 3 kolumner (status / åtgärd / kommentar)
-            if num_cols == 3:
-                widths = [Inches(1.3), Inches(3.7), Inches(3.7)]
-                for i, width in enumerate(widths):
-                    for row in table.rows:
-                        row.cells[i].width = width
-
+    # STEG 3: BYGG HUVUDINNEHÅLLET
+    for element in soup.children:
+        if not hasattr(element, 'name') or not element.name: continue
+        text = element.get_text(strip=True)
+        if not text: continue
+        
+        if element.name == 'h1': document.add_heading(text, level=2)
+        elif element.name == 'h2': document.add_heading(text, level=3)
+        elif element.name == 'div' and 'na-bar' in element.get('class', []):
+            document.add_paragraph(f"{text} (Ej aktuell)", style='List Bullet')
+        elif element.name == 'table':
+            rows_data = [[cell for cell in row.find_all(['th', 'td'])] for row in element.find_all('tr')]
+            if rows_data and rows_data[0]:
+                try:
+                    doc_table = document.add_table(rows=1, cols=len(rows_data[0]), style='Table Grid')
+                    for j, cell_text in enumerate(rows_data[0]):
+                        doc_table.cell(0, j).text = cell_text
+                        set_cell_shade(doc_table.cell(0, j), 'FFC000') # Färg på rubrikrad
+                    for i in range(1, len(rows_data)):
+                        row_cells = doc_table.add_row().cells
+                        for j, cell_text in enumerate(rows_data[i]):
+                            row_cells[j].text = cell_text
+                    document.add_paragraph()
+                except IndexError: print("Skipping malformed table.")
+    
     doc_io = BytesIO()
     document.save(doc_io)
     doc_io.seek(0)
-
-    if parsed and parsed["language"] == "sv":
-        filename = f"Inspektionsprotokoll {parsed['customer']} {parsed['machine']} - {parsed['title'].removeprefix('Inspektionsprotokoll').strip()} {datetime.now().strftime('%Y-%m-%d')}.docx"
-    elif parsed and parsed["language"] == "en":
-        filename = f"Inspection protocol {parsed['customer']} {parsed['machine']} - {parsed['title'].removeprefix('Inspection').strip()} {datetime.now().strftime('%Y-%m-%d')}.docx"
-    else:
-        filename = "inspection_protocol.docx"
     
-    return send_file(
-        doc_io,
-        as_attachment=True,
-        download_name=filename,
-        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
+    filename_prefix = TRANSLATIONS[lang]['report_title']
+    download_name = f"{filename_prefix}_{customer.replace(' ', '_')}_{machine.replace(' ', '_')}_{inspection_date}.docx"
+    
+    return send_file(doc_io, as_attachment=True, download_name=download_name, mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)

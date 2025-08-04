@@ -9,19 +9,25 @@
 <body>
 <div class="controls">
   <div class="left">
-    <div id="drop-zone">
-  🟢 Släpp en .docx-fil här eller klicka för att välja
-    <input type="file" id="upload" accept=".docx" hidden>
-</div>
-
+    <!-- FORMULÄR FÖR UPPLADDNING -->
+    <form id="uploadForm">
+      <div id="drop-zone">
+        🟢 Släpp en .docx-fil här eller klicka för att välja
+        <input type="file" id="fileInput" name="file" accept=".docx" hidden>
+      </div>
+    </form>
   </div>
   
-  <div class="right">
-    <form id="exportForm" method="POST" action="/export-word" style="display: inline;">
-    <input type="hidden" name="html" id="htmlInput" />
-    <input type="hidden" name="filename" id="filenameInput">
+  <div class="right" id="exportControls" style="display: none;"> <!-- Dold från start -->
+    <!-- FORMULÄR FÖR EXPORT -->
+    <form id="exportForm" method="POST" action="/export-word">
+      <input type="hidden" name="html" id="htmlInput" />
+      <input type="hidden" name="inspection_date" id="inspectionDateInput">
+      <input type="hidden" name="lang" id="langInput">
+      <input type="hidden" name="customer" id="customerInput">
+      <input type="hidden" name="machine" id="machineInput">
 
-    <button type="submit">💾 Spara Word</button>
+      <button type="submit">💾 Spara Word</button>
     </form>
     <button onclick="toggleDark()">🌙 Mörkt läge</button>
   </div>
@@ -29,8 +35,8 @@
 
 <div class="container">
   <div id="result">📝 Ladda upp ett dokument...</div>
-  </div>
-  <textarea id="full-content-html" style="display:none"></textarea>
-  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
