@@ -2,3 +2,5 @@ flask
 flask-cors
 python-docx
 beautifulsoup4
+Flask
+gunicorn

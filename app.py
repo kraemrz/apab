@@ -80,11 +80,29 @@ def upload_file():
         customer, machine = parse_filename_for_info(filename, detected_lang)
         
         blocks = []
+        content_started = False  # Flagga för att spåra när huvudinnehållet börjar
+
+        # Iterera genom alla element i dokumentets body
         for child in doc.element.body:
+            # Om vi inte har hittat starten på innehållet än
+            if not content_started:
+                # Kontrollera om elementet är en paragraf som startar en ny sektion
+                if isinstance(child, CT_P):
+                    p = Paragraph(child, doc)
+                    # Anta att den första rubriken som börjar med "Station" (eller ett nummer följt av Station) är starten
+                    # Detta är mer robust om dokumentet innehåller numrerade stationsrubriker som "3 Station 101"
+                    if p.text.strip().lower().startswith('station') or re.match(r'^\d+\s+station', p.text.strip().lower()):
+                        content_started = True
+                
+                # Om det inte är startpunkten, fortsätt till nästa element (och hoppa över det nuvarande)
+                if not content_started:
+                    continue
+
+            # När content_started är True, bearbeta alla efterföljande element
             if isinstance(child, CT_P):
                 p = Paragraph(child, doc)
                 text = p.text.strip()
-                if text and text.lower() != 'dokumentidentitet':
+                if text:  # Lägg endast till paragrafer som inte är tomma
                     blocks.append({"type": "paragraph", "text": text})
             elif isinstance(child, CT_Tbl):
                 t = Table(child, doc)
