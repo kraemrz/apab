@@ -1,15 +1,16 @@
-
 <!DOCTYPE html>
 <html lang="sv">
 <head>
   <meta charset="UTF-8" />
   <title>Inspektionsprotokoll</title>
+  <!-- Länkar till en extern CSS-fil -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+
+<!-- === TOPP-KONTROLLER === -->
 <div class="controls">
   <div class="left">
-    <!-- FORMULÄR FÖR UPPLADDNING -->
     <form id="uploadForm">
       <div id="drop-zone">
         🟢 Släpp en .docx-fil här eller klicka för att välja
@@ -17,26 +18,49 @@
       </div>
     </form>
   </div>
-  
-  <div class="right" id="exportControls" style="display: none;"> <!-- Dold från start -->
-    <!-- FORMULÄR FÖR EXPORT -->
+
+  <div class="right" id="exportControls" style="display: none;">
+    <!-- Export-formulär -->
     <form id="exportForm" method="POST" action="/export-word">
       <input type="hidden" name="html" id="htmlInput" />
       <input type="hidden" name="inspection_date" id="inspectionDateInput">
       <input type="hidden" name="lang" id="langInput">
       <input type="hidden" name="customer" id="customerInput">
       <input type="hidden" name="machine" id="machineInput">
-
+      <input type="hidden" name="comments_json" id="commentsInput">
       <button type="submit">💾 Spara Word</button>
     </form>
+    <!-- Knapparna är nu samlade -->
+    <button id="history-button">📜 Historik</button>
     <button onclick="toggleDark()">🌙 Mörkt läge</button>
   </div>
 </div>
 
+<!-- === HISTORIK-SEKTION (alltid i DOM, men dold från start) === -->
+<div id="history-container">
+  <div class="container">
+    <h3>Inspektionshistorik</h3>
+    <table id="history-table" class="table-grid">
+      <thead>
+        <tr>
+          <th>Datum</th>
+          <th>Kund</th>
+          <th>Kommentarer från inspektionen</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Rader fylls på av JavaScript -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- === HUVUDINNEHÅLL === -->
 <div class="container">
   <div id="result">📝 Ladda upp ett dokument...</div>
 </div>
 
+<!-- Länkar till en extern JavaScript-fil -->
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

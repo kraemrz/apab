@@ -9,6 +9,7 @@ venv/
 # OS-filer
 .DS_Store
 Thumbs.db
+inspections.db
 
 # ignore these maps
 /temp

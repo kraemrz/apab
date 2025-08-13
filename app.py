@@ -15,6 +15,8 @@ from docx.oxml.ns import qn
 from bs4 import BeautifulSoup
 from io import BytesIO
 from datetime import datetime
+from database import add_inspection, get_history_for_machine
+import json
 
 
 def resource_path(relative_path):
@@ -89,6 +91,8 @@ def upload_file():
         doc = Document(filepath)
         detected_lang = detect_language_from_doc(doc)
         customer, machine = parse_filename_for_info(filename, detected_lang)
+
+        history_data = get_history_for_machine(machine)
         
         blocks = []
         content_started = False
@@ -113,8 +117,15 @@ def upload_file():
                 table_data = [[cell.text.strip() for cell in row.cells] for row in t.rows]
                 blocks.append({"type": "table", "data": table_data})
 
-        return jsonify({"blocks": blocks, "lang": detected_lang, "customer": customer, "machine": machine})
+        return jsonify({
+            "blocks": blocks, 
+            "lang": detected_lang, 
+            "customer": customer, 
+            "machine": machine,
+            "history": history_data
+            })
 
+    
     except Exception as e:
         import traceback
         print(traceback.format_exc())
@@ -123,6 +134,12 @@ def upload_file():
         if os.path.exists(filepath):
             os.remove(filepath)
 
+@app.route('/history/<machine_id>')
+def get_history(machine_id):
+    history = get_history_for_machine(machine_id)
+    return jsonify(history)
+
+
 @app.route("/export-word", methods=["POST"])
 def export_to_word():
     lang = request.form.get('lang', 'sv')
@@ -130,6 +147,9 @@ def export_to_word():
     inspection_date = request.form.get('inspection_date', datetime.now().strftime('%Y-%m-%d'))
     customer = request.form.get('customer', 'Okänd Kund')
     machine = request.form.get('machine', 'Okänd Maskin')
+
+    comments_json = request.form.get('comments_json', '[]')
+    comments_data = json.loads(comments_json)
 
     soup = BeautifulSoup(html_content, "html.parser")
     document = Document()
@@ -185,8 +205,18 @@ def export_to_word():
     
     filename_prefix = TRANSLATIONS[lang]['report_title']
     download_name = f"{filename_prefix}_{customer.replace(' ', '_')}_{machine.replace(' ', '_')}_{inspection_date}.docx"
-    
+    try:
+        add_inspection(
+            customer=customer, 
+            machine=machine, 
+            inspection_date=inspection_date,
+            comments=comments_data
+            )
+        print(f"INFO: Inspection added for {customer} - {machine} on {inspection_date}")
+    except Exception as e:
+        print(f"Error saving inspection: {e}")
     return send_file(doc_io, as_attachment=True, download_name=download_name, mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    
 
 if __name__ == '__main__':
     app.run(debug=True)
