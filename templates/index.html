@@ -3,12 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <title>Inspektionsprotokoll</title>
-  <!-- Länkar till en extern CSS-fil -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-<!-- === TOPP-KONTROLLER === -->
+<!-- === TOP-CONTROLLER === -->
 <div class="controls">
   <div class="left">
     <form id="uploadForm">
@@ -36,13 +35,10 @@
   </div>
 </div>
 
-
-<!-- === HUVUDINNEHÅLL === -->
 <div class="container">
   <div id="result">📝 Ladda upp ett dokument...</div>
 </div>
 
-<!-- Länkar till en extern JavaScript-fil -->
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

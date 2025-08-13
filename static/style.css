@@ -1,4 +1,4 @@
-/* === Grundinställningar === */
+/* === Base settings === */
 body {
   background-color: #e6d7d7;
   color: #222;
@@ -13,7 +13,7 @@ body.dark-mode {
   color: #eee;
 }
 
-/* === Toppkontroller === */
+/* === Top Controls === */
 .controls {
   position: sticky;
   top: 0;
@@ -92,7 +92,7 @@ body.dark-mode #drop-zone.dragover, body.dark-mode #drop-zone:hover {
 }
 
 
-/* === Innehållscontainer === */
+/* === Container === */
 .container {
   max-width: 1500px;
   margin: 2rem auto;
@@ -106,7 +106,7 @@ body.dark-mode .container {
   background: #2a2a2a;
 }
 
-/* === Tabeller === */
+/* === Tables === */
 .table-grid {
   width: 100%;
   border-collapse: collapse;
@@ -153,7 +153,7 @@ body.dark-mode td[contenteditable="true"] {
   background-color: #334;
 }
 
-/* === NY STYLING FÖR HISTORIK-SEKTIONEN === */
+/* === STYLING FOR HISTORY SECTION === */
 #history-container {
   position: sticky;
   top: 65px;

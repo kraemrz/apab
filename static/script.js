@@ -1,7 +1,5 @@
-// static/script.js (Den slutgiltiga, kompletta och korrigerade versionen)
-
 document.addEventListener("DOMContentLoaded", function () {
-    // --- REFERENSER ---
+    // --- REFERENCES ---
     const dropZone = document.getElementById("drop-zone");
     const fileInput = document.getElementById("fileInput");
     const exportForm = document.getElementById("exportForm");
@@ -11,7 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
     
     let historicalData = {};
 
-    // --- HÄNDELSER ---
+    // --- HANDLERS ---
     dropZone.addEventListener("click", () => fileInput.click());
     fileInput.addEventListener("change", () => {
         if (fileInput.files.length > 0) handleFileUpload(fileInput.files[0]);
@@ -35,7 +33,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    // --- HUVUDFUNKTIONER ---
+    // --- HEAD FUNCTIONS ---
     function handleFileUpload(file) {
         if (!file.name.endsWith(".docx")) { alert("Endast .docx-filer är tillåtna!"); return; }
         const formData = new FormData();
@@ -104,7 +102,7 @@ document.addEventListener("DOMContentLoaded", function () {
         attachInteractionHandlers();
     }
 
-    // --- HJÄLPFUNKTIONER FÖR INTERAKTIVITET ---
+    // --- HELP FUNCTIONS FOR INTERACTIVITY ---
     function attachInteractionHandlers() {
         const editableCells = document.querySelectorAll('.editable-comment');
         const selectAllText = event => {
@@ -150,7 +148,7 @@ document.addEventListener("DOMContentLoaded", function () {
         statusCell.textContent = (commentText === defaultComment || commentText === "") ? "OK" : noteStatus;
     }
 
-    // --- EXPORT-LOGIK ---
+    // --- EXPORT LOGIC ---
     exportForm.addEventListener("submit", function (e) {
         e.preventDefault();
         const commentsToSave = [];
