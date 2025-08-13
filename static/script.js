@@ -1,17 +1,17 @@
-// static/script.js (Komplett och slutgiltig version)
+// static/script.js (Den slutgiltiga, kompletta och korrigerade versionen)
 
 document.addEventListener("DOMContentLoaded", function () {
-    // --- REFERENSER TILL HTML-ELEMENT ---
+    // --- REFERENSER ---
     const dropZone = document.getElementById("drop-zone");
     const fileInput = document.getElementById("fileInput");
     const exportForm = document.getElementById("exportForm");
     const resultDiv = document.getElementById("result");
     const exportControls = document.getElementById("exportControls");
-    const historyContainer = document.getElementById('history-container');
-    const historyButton = document.getElementById('history-button');
-    const historyTableBody = document.querySelector('#history-table tbody');
+    const historyToggleButton = document.getElementById('history-toggle-button');
+    
+    let historicalData = {};
 
-    // --- GRUNDLÄGGANDE HÄNDELSER ---
+    // --- HÄNDELSER ---
     dropZone.addEventListener("click", () => fileInput.click());
     fileInput.addEventListener("change", () => {
         if (fileInput.files.length > 0) handleFileUpload(fileInput.files[0]);
@@ -23,121 +23,91 @@ document.addEventListener("DOMContentLoaded", function () {
         dropZone.classList.remove("dragover");
         if (e.dataTransfer.files.length > 0) handleFileUpload(e.dataTransfer.files[0]);
     });
+    
+    window.toggleDark = function() { document.body.classList.toggle('dark-mode'); };
 
-    historyButton.addEventListener('click', () => {
-        if (historyContainer.style.display === 'none' || historyContainer.style.display === '') {
-            historyContainer.style.display = 'block';
+    historyToggleButton.addEventListener('click', () => {
+        resultDiv.classList.toggle('history-hidden');
+        if (resultDiv.classList.contains('history-hidden')) {
+            historyToggleButton.textContent = '📜 Visa historik';
         } else {
-            historyContainer.style.display = 'none';
+            historyToggleButton.textContent = '📜 Dölj historik';
         }
     });
 
-    window.toggleDark = function() { document.body.classList.toggle('dark-mode'); };
-
     // --- HUVUDFUNKTIONER ---
-
     function handleFileUpload(file) {
         if (!file.name.endsWith(".docx")) { alert("Endast .docx-filer är tillåtna!"); return; }
         const formData = new FormData();
         formData.append("file", file);
         resultDiv.innerHTML = '🔄 Läser in och analyserar dokumentet...';
-        historyContainer.style.display = 'none';
-        historyTableBody.innerHTML = '';
-
+        
         fetch("/upload", { method: "POST", body: formData })
-            .then((response) => response.json())
-            .then((data) => {
+            .then(response => response.json())
+            .then(data => {
                 if (data.error) {
                     resultDiv.innerHTML = `❌ Fel vid inläsning: ${data.error}`;
                 } else {
+                    historicalData = data.history || {};
                     resultDiv.dataset.lang = data.lang;
                     displayContent(data.blocks);
                     document.getElementById('langInput').value = data.lang;
                     document.getElementById('customerInput').value = data.customer;
                     document.getElementById('machineInput').value = data.machine;
                     exportControls.style.display = "flex";
-
-                    if (data.history && data.history.length > 0) {
-                        data.history.forEach(item => {
-                            const row = document.createElement('tr');
-                            const date = new Date(item.inspection_date).toLocaleDateString('sv-SE');
-                            let commentsHtml = '<span class="no-comments">Inga anmärkningar</span>';
-                            if (item.comments && item.comments.length > 0) {
-                                commentsHtml = item.comments.map(comment =>
-                                    `<div class="comment-item"><strong>${comment.station_name}:</strong> ${comment.comment_text}</div>`
-                                ).join('');
-                            }
-                            row.innerHTML = `<td>${date}</td><td>${item.customer}</td><td>${commentsHtml}</td>`;
-                            historyTableBody.appendChild(row);
-                        });
-                    }
                 }
             })
-            .catch((error) => { resultDiv.innerHTML = '❌ Ett fel uppstod vid kommunikation med servern.'; console.error(error); });
+            .catch(error => { resultDiv.innerHTML = '❌ Ett fel uppstod vid kommunikation med servern.'; console.error(error); });
     }
 
     function displayContent(blocks) {
         let html = "";
-        blocks.forEach((block) => {
-            if (block.type === 'paragraph' && block.text.toLowerCase() === 'dokumentidentitet') return;
+        let currentStation = "";
+        blocks.forEach(block => {
             if (block.type === 'paragraph') {
-                if (block.text.toLowerCase().startsWith('station')) { html += `<h1>${block.text}</h1>`; } 
-                else { html += `<h2>${block.text}</h2>`; }
+                if (block.text.toLowerCase().startsWith('station')) {
+                    currentStation = block.text;
+                    html += `<h1>${block.text}</h1>`;
+                } else {
+                    html += `<h2>${block.text}</h2>`;
+                }
             } else if (block.type === 'table') {
                 const tableData = block.data || [];
                 if (tableData.length === 0) return;
-                const lang = resultDiv.dataset.lang || 'sv';
-                const isSwedishNATable = tableData.length === 1 && tableData[0].length === 1 && tableData[0][0]?.toUpperCase() === 'N/A';
-                const isEnglishNATable = tableData.length > 1 && tableData[1] && tableData[1].some(cell => cell.toUpperCase() === 'N/A');
-                const isNATable = isSwedishNATable || isEnglishNATable;
                 const isSignatureTable = tableData[0][0]?.toLowerCase().includes('date') || tableData[0][0]?.toLowerCase().includes('datum');
-                if (isNATable) {
-                    html += '<table class="table-grid na-table">';
-                    tableData.forEach((row, rowIndex) => { html += `<tr>${row.map(cell => rowIndex === 0 ? `<th>${cell}</th>` : `<td>${cell}</td>`).join("")}</tr>`; });
-                    html += '</table>';
-                } else if (isSignatureTable) {
+                if (isSignatureTable) {
                     html += `<table class="table-grid"><tr><th>${tableData[0][0]}</th><th>${tableData[0][1]}</th></tr><tr><td><input type="date" class="form-control" id="inspection-date-field" value="${tableData[1]?.[0] || ''}"></td><td><input type="text" class="form-control" id="signature-field" value="${tableData[1]?.[1] || ''}"></td></tr>`;
                     if (tableData.length > 2) { html += `<tr><td> </td><td> </td></tr>`; }
                     html += '</table>';
                 } else {
-                    html += '<table class="table-grid">';
+                    html += '<table class="table-grid inspection-table">';
                     const headers = tableData[0] || [];
-                    html += '<colgroup>';
-                    headers.forEach(header => {
-                        const h = header.toLowerCase();
-                        if (h === 'status' || h === 'results') { html += '<col class="col-status">'; } 
-                        else if (h === 'åtgärd' || h === 'description') { html += '<col class="col-action">'; } 
-                        else if (h === 'kommentar' || h === 'comment') { html += '<col class="col-comment">'; } 
-                        else { html += '<col>'; }
-                    });
-                    html += '</colgroup>';
-                    const statusColIndex = headers.findIndex(h => h.toLowerCase() === 'status' || h.toLowerCase() === 'results');
-                    const commentColIndex = headers.findIndex(h => h.toLowerCase() === 'kommentar' || h.toLowerCase() === 'comment');
-                    tableData.forEach((row, rowIndex) => {
-                        html += '<tr>';
-                        row.forEach((cell, cellIndex) => {
-                            if (rowIndex === 0) { html += `<th>${cell}</th>`; } 
-                            else {
-                                if (cellIndex === commentColIndex) { html += `<td contenteditable="true" class="editable-comment">${cell}</td>`; } 
-                                else { html += `<td>${cell}</td>`; }
-                            }
-                        });
-                        html += '</tr>';
+                    html += `<colgroup><col class="col-status"><col class="col-action"><col class="col-comment"><col class="col-history"></colgroup>`;
+                    html += `<tr><th>${headers[0] || 'Status'}</th><th>${headers[1] || 'Åtgärd'}</th><th>${headers[2] || 'Kommentar'}</th><th>Historik</th></tr>`;
+                    const actionColIndex = 1;
+                    tableData.slice(1).forEach(row => {
+                        const actionText = row[actionColIndex] || "";
+                        const historyKey = `${currentStation}|${actionText}`;
+                        const historyItems = historicalData[historyKey];
+                        let historyHtml = '<span class="no-history">Ingen historik</span>';
+                        if (historyItems && historyItems.length > 0) {
+                            historyHtml = historyItems.map(h => `<div class="history-item"><strong>${h.date}:</strong> ${h.comment}</div>`).join('');
+                        }
+                        html += `<tr><td>${row[0] || ''}</td><td>${actionText}</td><td contenteditable="true" class="editable-comment">${row[2] || ''}</td><td class="history-cell">${historyHtml}</td></tr>`;
                     });
                     html += '</table>';
                 }
             }
         });
         resultDiv.innerHTML = html;
+        resultDiv.classList.add('history-hidden');
         attachInteractionHandlers();
     }
 
     // --- HJÄLPFUNKTIONER FÖR INTERAKTIVITET ---
-
     function attachInteractionHandlers() {
         const editableCells = document.querySelectorAll('.editable-comment');
-        
-        const selectAllText = (event) => {
+        const selectAllText = event => {
             setTimeout(() => {
                 const selection = window.getSelection();
                 const range = document.createRange();
@@ -146,12 +116,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 selection.addRange(range);
             }, 0);
         };
-
         editableCells.forEach(cell => {
             cell.removeEventListener('keydown', handleCellNavigation);
             cell.removeEventListener('focus', selectAllText);
             cell.removeEventListener('input', updateStatusOnInput);
-            
             cell.addEventListener('keydown', handleCellNavigation);
             cell.addEventListener('focus', selectAllText);
             cell.addEventListener('input', updateStatusOnInput);
@@ -173,47 +141,41 @@ document.addEventListener("DOMContentLoaded", function () {
     function updateStatusOnInput(event) {
         const cellElement = event.target;
         const row = cellElement.closest('tr');
-        const headers = Array.from(row.closest('table').querySelectorAll('th')).map(th => th.textContent.toLowerCase());
-        const statusColIndex = headers.findIndex(h => h === 'status' || h.toLowerCase() === 'results');
+        const statusCell = row.children[0];
         const lang = resultDiv.dataset.lang || 'sv';
-        
-        if (!row || statusColIndex === -1) return;
-        const statusCell = row.children[statusColIndex];
+        if (!statusCell) return;
         const commentText = cellElement.textContent.trim().toUpperCase();
         const defaultComment = (lang === 'en') ? "WITHOUT NOTICE" : "U/A";
         const noteStatus = (lang === 'en') ? "Note" : "Anm.";
         statusCell.textContent = (commentText === defaultComment || commentText === "") ? "OK" : noteStatus;
     }
 
-    // --- EXPORT-LOGIK MED FETCH OCH RELOAD ---
+    // --- EXPORT-LOGIK ---
     exportForm.addEventListener("submit", function (e) {
         e.preventDefault();
-
         const commentsToSave = [];
         let currentStation = "";
-        resultDiv.querySelectorAll('h1, table').forEach(element => {
+        resultDiv.querySelectorAll('h1, table.inspection-table').forEach(element => {
             if (element.tagName === 'H1') {
                 currentStation = element.textContent.trim();
-            } else if (element.tagName === 'TABLE' && currentStation) {
-                const headers = Array.from(element.querySelectorAll('th')).map(th => th.textContent.toLowerCase());
-                const statusColIndex = headers.findIndex(h => h === 'status' || h === 'results');
-                const commentColIndex = headers.findIndex(h => h === 'kommentar' || h === 'comment');
-                if (statusColIndex === -1 || commentColIndex === -1) return;
+            } else if (element.tagName === 'TABLE') {
+                const actionColIndex = 1;
                 element.querySelectorAll('tr').forEach((row, rowIndex) => {
                     if (rowIndex === 0) return;
-                    const statusCell = row.children[statusColIndex];
-                    const commentCell = row.children[commentColIndex];
-                    if (statusCell && commentCell) {
+                    const statusCell = row.children[0];
+                    const actionCell = row.children[actionColIndex];
+                    const commentCell = row.children[2];
+                    if (statusCell && actionCell && commentCell) {
                         const statusText = statusCell.textContent.trim().toLowerCase();
+                        const actionText = actionCell.textContent.trim();
                         const commentText = commentCell.textContent.trim();
                         if ((statusText === 'anm.' || statusText === 'note') && commentText) {
-                            commentsToSave.push({ station: currentStation, comment: commentText });
+                            commentsToSave.push({ station: currentStation, action: actionText, comment: commentText });
                         }
                     }
                 });
             }
         });
-
         const dateForFilename = document.getElementById('inspection-date-field')?.value || new Date().toISOString().slice(0, 10);
         const inspectionDateForFilename = prompt("Ange inspektionsdatum för filnamnet (ÅÅÅÅ-MM-DD):", dateForFilename);
         if (!inspectionDateForFilename) return;
@@ -228,7 +190,6 @@ document.addEventListener("DOMContentLoaded", function () {
         tempResultDiv.querySelectorAll('.editable-comment').forEach(cell => {
             cell.textContent = cell.textContent;
             cell.removeAttribute('contenteditable');
-            cell.removeAttribute('oninput');
         });
         formData.set("html", tempResultDiv.innerHTML);
         formData.set("comments_json", JSON.stringify(commentsToSave));
@@ -261,7 +222,6 @@ document.addEventListener("DOMContentLoaded", function () {
             a.click();
             window.URL.revokeObjectURL(url);
             a.remove();
-
             setTimeout(() => {
                 location.reload();
             }, 500);

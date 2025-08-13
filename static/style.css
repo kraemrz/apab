@@ -94,7 +94,7 @@ body.dark-mode #drop-zone.dragover, body.dark-mode #drop-zone:hover {
 
 /* === Innehållscontainer === */
 .container {
-  max-width: 900px;
+  max-width: 1500px;
   margin: 2rem auto;
   padding: 2rem;
   background: white;
@@ -127,9 +127,18 @@ body.dark-mode .container {
   font-weight: 600;
 }
 
-.table-grid colgroup col:nth-child(1) { width: 12%; }  /* Status-kolumnen (liten) */
-.table-grid colgroup col:nth-child(2) { width:48%; }  /* Åtgärd-kolumnen */
-.table-grid colgroup col:nth-child(3) { width:40%; }  /* Kommentar-kolumnen */
+.table-grid colgroup .col-status { width: 20%; }
+.table-grid colgroup .col-action { width:40%; }
+.table-grid colgroup .col-comment { width:20%; }
+.table-grid colgroup .col-history { width: 20%; }
+
+.history-hidden .table-grid th:nth-child(4),
+.history-hidden .table-grid td:nth-child(4) {
+  display: none;
+}
+
+.history-hidden .table-grid colgroup .col-action {width: 56.5%; }
+.history-hidden .table-grid colgroup .col-comment {width: 56.5%; }
 
 
 body.dark-mode .table-grid th, body.dark-mode .table-grid td {
