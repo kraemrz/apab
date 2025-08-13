@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 from flask import Flask, render_template, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 from docx import Document
@@ -14,6 +15,16 @@ from docx.oxml.ns import qn
 from bs4 import BeautifulSoup
 from io import BytesIO
 from datetime import datetime
+
+
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -80,29 +91,22 @@ def upload_file():
         customer, machine = parse_filename_for_info(filename, detected_lang)
         
         blocks = []
-        content_started = False  # Flagga för att spåra när huvudinnehållet börjar
+        content_started = False
 
-        # Iterera genom alla element i dokumentets body
         for child in doc.element.body:
-            # Om vi inte har hittat starten på innehållet än
             if not content_started:
-                # Kontrollera om elementet är en paragraf som startar en ny sektion
                 if isinstance(child, CT_P):
                     p = Paragraph(child, doc)
-                    # Anta att den första rubriken som börjar med "Station" (eller ett nummer följt av Station) är starten
-                    # Detta är mer robust om dokumentet innehåller numrerade stationsrubriker som "3 Station 101"
                     if p.text.strip().lower().startswith('station') or re.match(r'^\d+\s+station', p.text.strip().lower()):
                         content_started = True
                 
-                # Om det inte är startpunkten, fortsätt till nästa element (och hoppa över det nuvarande)
                 if not content_started:
                     continue
 
-            # När content_started är True, bearbeta alla efterföljande element
             if isinstance(child, CT_P):
                 p = Paragraph(child, doc)
                 text = p.text.strip()
-                if text:  # Lägg endast till paragrafer som inte är tomma
+                if text:
                     blocks.append({"type": "paragraph", "text": text})
             elif isinstance(child, CT_Tbl):
                 t = Table(child, doc)
@@ -130,8 +134,7 @@ def export_to_word():
     soup = BeautifulSoup(html_content, "html.parser")
     document = Document()
     
-    # STEG 1: SKAPA FÖRSTASIDAN
-    document.add_picture("static/images/apab_logo.png", width=Inches(3.0))
+    document.add_picture(resource_path("static/images/apab_logo.png"), width=Inches(3.0))
     p = document.add_paragraph(); p.add_run(TRANSLATIONS[lang]['report_title']).bold = True
     p.runs[0].font.size = Pt(24); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     document.add_paragraph()
@@ -147,11 +150,10 @@ def export_to_word():
     info_table.cell(2, 1).text = inspection_date
     document.add_page_break()
 
-    # STEG 2: SKAPA INNEHÅLLSFÖRTECKNING
     add_table_of_contents(document, TRANSLATIONS[lang]['toc_title'])
     document.add_page_break()
 
-    # STEG 3: BYGG HUVUDINNEHÅLLET
+   
     for element in soup.children:
         if not hasattr(element, 'name') or not element.name: continue
         text = element.get_text(strip=True)
@@ -162,13 +164,14 @@ def export_to_word():
         elif element.name == 'div' and 'na-bar' in element.get('class', []):
             document.add_paragraph(f"{text} (Ej aktuell)", style='List Bullet')
         elif element.name == 'table':
-            rows_data = [[cell for cell in row.find_all(['th', 'td'])] for row in element.find_all('tr')]
+            rows_data = [[cell.get_text(strip=True) for cell in row.find_all(['th', 'td'])] for row in element.find_all('tr')]
             if rows_data and rows_data[0]:
                 try:
                     doc_table = document.add_table(rows=1, cols=len(rows_data[0]), style='Table Grid')
+                    header_cells = doc_table.rows[0].cells
                     for j, cell_text in enumerate(rows_data[0]):
-                        doc_table.cell(0, j).text = cell_text
-                        set_cell_shade(doc_table.cell(0, j), 'FFC000') # Färg på rubrikrad
+                        header_cells[j].text = cell_text
+                        set_cell_shade(header_cells[j], 'FFC000')
                     for i in range(1, len(rows_data)):
                         row_cells = doc_table.add_row().cells
                         for j, cell_text in enumerate(rows_data[i]):
