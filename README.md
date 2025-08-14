@@ -10,8 +10,6 @@
 
     Kopiera hela raden nedan.
 
-    VIKTIGT: Be din kollega (dig) om rätt användarnamn och byt ut ditt-användarnamn i kommandot mot det.
-
     Högerklicka i det svarta fönstret, välj "Klistra in" och tryck Enter.
     code Bash        
       docker run -p 5000:5000 --name min-apab-container kraemr/apab-app
