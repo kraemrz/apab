@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 *.pyc
+pyvenv.cfg
 
 # Miljö
 venv/
@@ -12,5 +13,7 @@ Thumbs.db
 inspections.db
 
 # ignore these maps
-/temp
-/uploads
+temp/
+uploads/
+Lib/
+Scripts/

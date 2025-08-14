@@ -2,8 +2,18 @@ from peewee import *
 from playhouse.shortcuts import model_to_dict
 from datetime import datetime
 from collections import defaultdict
+import os
+from dotenv import load_dotenv
 
-db = SqliteDatabase('inspections.db')
+load_dotenv()
+
+db = PostgresqlDatabase(
+        'postgres',
+        user=os.getenv('DB_USER'),
+        password=os.getenv('DB_PASSWORD'),
+        host=os.getenv('DB_HOST'),
+        port=os.getenv('DB_PORT')
+    )
 
 class Inspection(Model):
     customer = CharField()
