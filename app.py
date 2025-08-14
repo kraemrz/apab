@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 from docx import Document
 from docx.table import Table
@@ -18,6 +18,8 @@ from datetime import datetime
 from database import add_inspection, get_history_for_machine
 import json
 
+SAVE_FOLDER = 'Sparade_Rapporter'
+os.makedirs(SAVE_FOLDER, exist_ok=True)
 
 def resource_path(relative_path):
     try:
@@ -140,6 +142,8 @@ def get_history(machine_id):
     return jsonify(history)
 
 
+    
+
 @app.route("/export-word", methods=["POST"])
 def export_to_word():
     lang = request.form.get('lang', 'sv')
@@ -216,7 +220,11 @@ def export_to_word():
     except Exception as e:
         print(f"Error saving inspection: {e}")
     return send_file(doc_io, as_attachment=True, download_name=download_name, mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-    
+
+
+@app.route('/sw.js')
+def service_worker():
+    return send_from_directory('.', 'sw.js')  
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')

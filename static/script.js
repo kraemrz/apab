@@ -1,4 +1,17 @@
+// static/script.js (Den slutgiltiga, kompletta och korrigerade versionen v3)
+
 document.addEventListener("DOMContentLoaded", function () {
+    // --- SERVICE WORKER REGISTRATION ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.service-worker.register('/sw.js').then(registration => {
+                console.log('Service Worker registered with scope:', registration.scope);
+            }).catch(error => {
+                console.error('Service Worker registration failed:', error);
+            });
+        });
+    }
+
     // --- REFERENCES ---
     const dropZone = document.getElementById("drop-zone");
     const fileInput = document.getElementById("fileInput");
@@ -9,7 +22,7 @@ document.addEventListener("DOMContentLoaded", function () {
     
     let historicalData = {};
 
-    // --- HANDLERS ---
+    // --- EVENT HANDLERS ---
     dropZone.addEventListener("click", () => fileInput.click());
     fileInput.addEventListener("change", () => {
         if (fileInput.files.length > 0) handleFileUpload(fileInput.files[0]);
@@ -33,7 +46,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    // --- HEAD FUNCTIONS ---
+    // --- MAIN FUNCTIONS ---
     function handleFileUpload(file) {
         if (!file.name.endsWith(".docx")) { alert("Endast .docx-filer är tillåtna!"); return; }
         const formData = new FormData();
@@ -102,7 +115,7 @@ document.addEventListener("DOMContentLoaded", function () {
         attachInteractionHandlers();
     }
 
-    // --- HELP FUNCTIONS FOR INTERACTIVITY ---
+    // --- INTERACTIVITY HELPERS ---
     function attachInteractionHandlers() {
         const editableCells = document.querySelectorAll('.editable-comment');
         const selectAllText = event => {
@@ -148,9 +161,10 @@ document.addEventListener("DOMContentLoaded", function () {
         statusCell.textContent = (commentText === defaultComment || commentText === "") ? "OK" : noteStatus;
     }
 
-    // --- EXPORT LOGIC ---
+    // --- EXPORT LOGIC (med städning av historik) ---
     exportForm.addEventListener("submit", function (e) {
         e.preventDefault();
+        
         const commentsToSave = [];
         let currentStation = "";
         resultDiv.querySelectorAll('h1, table.inspection-table').forEach(element => {
@@ -174,21 +188,35 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
             }
         });
+
         const dateForFilename = document.getElementById('inspection-date-field')?.value || new Date().toISOString().slice(0, 10);
         const inspectionDateForFilename = prompt("Ange inspektionsdatum för filnamnet (ÅÅÅÅ-MM-DD):", dateForFilename);
         if (!inspectionDateForFilename) return;
 
-        const formData = new FormData(exportForm);
         const tempResultDiv = document.createElement('div');
         tempResultDiv.innerHTML = resultDiv.innerHTML;
+
+        // STÄDA BORT HISTORIKEN FRÅN KLONEN
+        tempResultDiv.querySelectorAll('table').forEach(table => {
+            const colToRemove = table.querySelector('colgroup col:nth-child(4)');
+            if (colToRemove) colToRemove.remove();
+            table.querySelectorAll('tr').forEach(row => {
+                const cellToRemove = row.querySelector('th:nth-child(4), td:nth-child(4)');
+                if (cellToRemove) cellToRemove.remove();
+            });
+        });
+
         const dateField = tempResultDiv.querySelector("#inspection-date-field");
         if (dateField) { dateField.parentElement.innerHTML = document.getElementById('inspection-date-field').value; }
         const signatureField = tempResultDiv.querySelector("#signature-field");
         if (signatureField) { signatureField.parentElement.innerHTML = document.getElementById('signature-field').value; }
+
         tempResultDiv.querySelectorAll('.editable-comment').forEach(cell => {
             cell.textContent = cell.textContent;
             cell.removeAttribute('contenteditable');
         });
+
+        const formData = new FormData(exportForm);
         formData.set("html", tempResultDiv.innerHTML);
         formData.set("comments_json", JSON.stringify(commentsToSave));
         formData.set("inspection_date", inspectionDateForFilename);
@@ -226,7 +254,7 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .catch(error => {
             console.error('Fel vid export:', error);
-            alert('Ett fel uppstod vid exporten. Kontrollera konsolen för mer information.');
+            alert('Ett fel uppstod vid exporten.');
         });
     });
 });
