@@ -1,4 +1,4 @@
-# Steg 1: Öppna Terminalen (Kommandotolken)
+Steg 1: Öppna Terminalen (Kommandotolken)
 
     Klicka på Start-menyn.
 
@@ -6,7 +6,7 @@
 
     Ett svart fönster (terminalen) kommer att öppnas.
 
-# Steg 2: Starta appen med ett enda kommando
+Steg 2: Starta appen med ett enda kommando
 
     Kopiera hela raden nedan.
 
@@ -18,7 +18,7 @@
 
       
 
-# Vad händer nu?
+Vad händer nu?
 
     Docker kommer att se att du inte har avbilden ditt-användarnamn/apab-app lokalt.
 
@@ -28,10 +28,12 @@
 
 Appen är nu igång!
 
-# Steg 3: Öppna appen i din webbläsare
+Steg 3: Öppna appen i din webbläsare
 
     Öppna din vanliga webbläsare (Chrome, Edge, etc.).
 
     Skriv in följande adress i adressfältet och tryck Enter:
     
       http://localhost:5000
+
+  
