@@ -7,12 +7,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+db_user = os.getenv('DB_USER')
+db_password = os.getenv('DB_PASSWORD')
+db_host = os.getenv('DB_HOST')
+db_port_str = os.getenv('DB_PORT')
+
+if not all([db_user, db_password, db_host, db_port_str]):
+    raise ValueError("Databas-konfiguration saknas. Se till att DB_USER, DB_PASSWORD, DB_HOST, och DB_PORT är satta i .env-filen.")
+
 db = PostgresqlDatabase(
         'postgres',
-        user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASSWORD'),
-        host=os.getenv('DB_HOST'),
-        port=os.getenv('DB_PORT')
+        user=db_user,
+        password=db_password,
+        host=db_host,
+        port=int(db_port_str)
     )
 
 class Inspection(Model):
