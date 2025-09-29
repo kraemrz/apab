@@ -36,7 +36,7 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 TRANSLATIONS = {
     'sv': { 'toc_title': 'Innehåll', 'report_title': 'Inspektionsprotokoll', 'keywords': ['status', 'åtgärd', 'kommentar', 'signatur'] },
-    'en': { 'toc_title': 'Table of Contents', 'report_title': 'Inspection Report', 'keywords': ['results', 'description', 'comment', 'signature'] }
+    'en': { 'toc_title': 'Table of Contents', 'report_title': 'Inspection', 'keywords': ['results', 'description', 'comment', 'signature'] }
 }
 
 def parse_filename_for_info(filename, lang):
