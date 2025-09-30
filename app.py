@@ -142,8 +142,6 @@ def get_history(machine_id):
     return jsonify(history)
 
 
-    
-
 @app.route("/export-word", methods=["POST"])
 def export_to_word():
     lang = request.form.get('lang', 'sv')
@@ -151,6 +149,7 @@ def export_to_word():
     inspection_date = request.form.get('inspection_date', datetime.now().strftime('%Y-%m-%d'))
     customer = request.form.get('customer', 'Okänd Kund')
     machine = request.form.get('machine', 'Okänd Maskin')
+    signature = request.form.get('signature', '') # <-- NY KOD: Hämta signaturen
 
     comments_json = request.form.get('comments_json', '[]')
     comments_data = json.loads(comments_json)
@@ -163,7 +162,8 @@ def export_to_word():
     p.runs[0].font.size = Pt(24); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     document.add_paragraph()
     
-    info_table = document.add_table(rows=3, cols=2)
+    # Ändra till 4 rader för att inkludera signaturen
+    info_table = document.add_table(rows=4, cols=2) 
     info_table.columns[0].width = Inches(1.5); info_table.columns[1].width = Inches(4.5)
     
     cell_label_c = info_table.cell(0, 0).paragraphs[0]; cell_label_c.add_run('Kund:').bold = True; cell_label_c.alignment = WD_ALIGN_PARAGRAPH.RIGHT
@@ -172,6 +172,11 @@ def export_to_word():
     info_table.cell(1, 1).text = machine
     cell_label_d = info_table.cell(2, 0).paragraphs[0]; cell_label_d.add_run('Inspektionsdatum:').bold = True; cell_label_d.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     info_table.cell(2, 1).text = inspection_date
+    
+    # NY KOD: Lägg till signatur i infotabellen
+    cell_label_s = info_table.cell(3, 0).paragraphs[0]; cell_label_s.add_run('Signatur:').bold = True; cell_label_s.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    info_table.cell(3, 1).text = signature # <-- Sätt signaturvärdet här
+
     document.add_page_break()
 
     add_table_of_contents(document, TRANSLATIONS[lang]['toc_title'])

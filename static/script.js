@@ -1,10 +1,11 @@
-// static/script.js (Den slutgiltiga, kompletta och korrigerade versionen v3)
+// static/script.js (Den fullständigt korrigerade och kompletta versionen)
 
 document.addEventListener("DOMContentLoaded", function () {
     // --- SERVICE WORKER REGISTRATION ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.service-worker.register('/sw.js').then(registration => {
+            // FIX: Ändrat 'service-worker' till 'serviceWorker' (CamelCase)
+            navigator.serviceWorker.register('/sw.js').then(registration => {
                 console.log('Service Worker registered with scope:', registration.scope);
             }).catch(error => {
                 console.error('Service Worker registration failed:', error);
@@ -20,19 +21,52 @@ document.addEventListener("DOMContentLoaded", function () {
     const exportControls = document.getElementById("exportControls");
     const historyToggleButton = document.getElementById('history-toggle-button');
     
-    let historicalData = {};
+    // FIX: Deklarera referenser till de dolda inputfälten här
+    const htmlInput = document.getElementById('htmlInput');
+    const inspectionDateInput = document.getElementById('inspectionDateInput');
+    const langInput = document.getElementById('langInput');
+    const customerInput = document.getElementById('customerInput');
+    const machineInput = document.getElementById('machineInput');
+    const commentsInput = document.getElementById('commentsInput');
 
+    let historicalData = {};
+    let comments = []; // Antar att denna globala variabel håller kommentarerna
+    let currentLang = "sv"; // Initialvärde
+    let currentCustomer = "Okänd Kund"; // Initialvärde
+    let currentMachine = "Okänd Maskin"; // Initialvärde
+
+    const saveTempDocxButton = document.getElementById('saveTempDocxButton');
+    
     // --- EVENT HANDLERS ---
     dropZone.addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", () => {
-        if (fileInput.files.length > 0) handleFileUpload(fileInput.files[0]);
+    fileInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) {
+            const file = e.target.files[0];
+            if (file.name.endsWith(".docx")) {
+                handleFileUpload(file); // För .docx, använd befintlig logik
+            } else if (file.name.endsWith(".json")) {
+                processJSONFile(file); // För .json, använd ny logik
+            } else {
+                alert("Endast .docx- och .json-filer är tillåtna!");
+            }
+        }
     });
+    // Drag-and-drop för både .docx och .json
     dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragover"); });
     dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
     dropZone.addEventListener("drop", (e) => {
         e.preventDefault();
         dropZone.classList.remove("dragover");
-        if (e.dataTransfer.files.length > 0) handleFileUpload(e.dataTransfer.files[0]);
+        if (e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            if (file.name.endsWith(".docx")) {
+                handleFileUpload(file);
+            } else if (file.name.endsWith(".json")) {
+                processJSONFile(file);
+            } else {
+                alert("Endast .docx- och .json-filer är tillåtna!");
+            }
+        }
     });
     
     window.toggleDark = function() { document.body.classList.toggle('dark-mode'); };
@@ -47,8 +81,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // --- MAIN FUNCTIONS ---
+    // Funktion för att hantera uppladdning av .docx-filer (befintlig server-side logik)
     function handleFileUpload(file) {
-        if (!file.name.endsWith(".docx")) { alert("Endast .docx-filer är tillåtna!"); return; }
         const formData = new FormData();
         formData.append("file", file);
         resultDiv.innerHTML = '🔄 Läser in och analyserar dokumentet...';
@@ -62,14 +96,205 @@ document.addEventListener("DOMContentLoaded", function () {
                     historicalData = data.history || {};
                     resultDiv.dataset.lang = data.lang;
                     displayContent(data.blocks);
-                    document.getElementById('langInput').value = data.lang;
-                    document.getElementById('customerInput').value = data.customer;
-                    document.getElementById('machineInput').value = data.machine;
+                    
+                    // Uppdatera globala variabler med data från servern
+                    currentLang = data.lang;
+                    currentCustomer = data.customer;
+                    currentMachine = data.machine;
+
+                    // Fyll de dolda fälten med de nu aktuella värdena (OBS! HTML/Comments fylls av prepareDocumentContent...)
+                    langInput.value = data.lang;
+                    customerInput.value = data.customer;
+                    machineInput.value = data.machine;
                     exportControls.style.display = "flex";
                 }
             })
             .catch(error => { resultDiv.innerHTML = '❌ Ett fel uppstod vid kommunikation med servern.'; console.error(error); });
     }
+
+    // NY FUNKTION: För att hantera uppladdning av .json-filer (klientside-logik)
+    function processJSONFile(file) {
+        resultDiv.innerHTML = '🔄 Laddar in temporär JSON-fil...';
+        exportControls.style.display = 'none'; // Dölj kontroller tills data är laddad
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                const jsonData = JSON.parse(event.target.result);
+                console.log("JSON-data inläst:", jsonData);
+
+                // Populera resultDiv med sparad HTML
+                resultDiv.innerHTML = jsonData.html || '';
+                resultDiv.dataset.lang = jsonData.lang || 'sv';
+
+                // Dölj historiken när JSON laddas in
+                resultDiv.classList.add('history-hidden'); 
+                historyToggleButton.textContent = '📜 Visa historik'; 
+
+                // Uppdatera globala variabler med sparad data
+                currentLang = jsonData.lang || 'sv';
+                currentCustomer = jsonData.customer || 'Okänd Kund';
+                currentMachine = jsonData.machine || 'Okänd Maskin';
+                comments = jsonData.comments || []; // Ladda in sparade kommentarer
+                historicalData = jsonData.historicalData || {}; // Ladda in historikdata om den sparades
+
+                // Fyll dolda input-fält för exportForm
+                langInput.value = currentLang;
+                customerInput.value = currentCustomer;
+                machineInput.value = currentMachine;
+                // inspectionDateInput och htmlInput fylls senare vid export/temp-save
+                // commentsInput fylls också av prepareDocumentContent...
+
+                // Uppdatera synliga inputfält om de finns i DOM
+                const inspectionDateField = document.getElementById('inspection-date-field');
+                if (inspectionDateField) inspectionDateField.value = jsonData.inspectionDate || new Date().toISOString().slice(0, 10);
+                
+                const signatureField = document.getElementById('signature-field');
+                if (signatureField) signatureField.value = jsonData.signature || ''; // Ladda in signaturvärde om det finns i JSON
+
+                attachInteractionHandlers(); // Återaktivera interaktionshanterare
+                exportControls.style.display = "flex"; // Visa exportkontroller igen
+                
+                alert("Temporär fil laddades in framgångsrikt!");
+
+            } catch (e) {
+                resultDiv.innerHTML = `❌ Fel vid inläsning av JSON-fil: ${e.message}`;
+                console.error('Fel vid parsning av JSON:', e);
+            }
+        };
+        reader.onerror = function(event) {
+            resultDiv.innerHTML = `❌ Fel vid läsning av fil: ${event.target.error.name}`;
+            console.error('Fil läsfel:', event.target.error);
+        };
+        reader.readAsText(file); // Läs filen som text
+    }
+
+
+    // Funktion för att extrahera och städa HTML, och samla kommentarer
+    // Används för den slutgiltiga Word-exporten
+    function prepareDocumentContentAndCommentsForWordExport(skipPrompt = false) {
+        const commentsToSave = [];
+        let currentStation = "";
+        resultDiv.querySelectorAll('h1, table.inspection-table').forEach(element => {
+            if (element.tagName === 'H1') {
+                currentStation = element.textContent.trim();
+            } else if (element.tagName === 'TABLE') {
+                const actionColIndex = 1;
+                element.querySelectorAll('tr').forEach((row, rowIndex) => {
+                    if (rowIndex === 0) return;
+                    const statusCell = row.children[0];
+                    const actionCell = row.children[actionColIndex];
+                    const commentCell = row.children[2];
+                    if (statusCell && actionCell && commentCell) {
+                        const statusText = statusCell.textContent.trim().toLowerCase();
+                        const actionText = actionCell.textContent.trim();
+                        const commentText = commentCell.textContent.trim();
+                        if ((statusText === 'anm.' || statusText === 'note') && commentText) {
+                            commentsToSave.push({ station: currentStation, action: actionText, comment: commentText });
+                        }
+                    }
+                });
+            }
+        });
+
+        const dateFieldInTable = document.getElementById('inspection-date-field');
+        const defaultDate = dateFieldInTable ? dateFieldInTable.value : new Date().toISOString().slice(0, 10);
+        let finalInspectionDate = defaultDate;
+
+        if (!skipPrompt) {
+            finalInspectionDate = prompt("Ange inspektionsdatum för filnamnet (ÅÅÅÅ-MM-DD):", defaultDate);
+            if (!finalInspectionDate) return null; // Avbryt om användaren avbröt prompten
+        }
+
+        const tempResultDiv = document.createElement('div');
+        tempResultDiv.innerHTML = resultDiv.innerHTML; // KLONA DET RÅA INNEHÅLLET
+
+        // STÄDA BORT HISTORIKEN FRÅN KLONEN
+        tempResultDiv.querySelectorAll('table').forEach(table => {
+            const colToRemove = table.querySelector('colgroup col:nth-child(4)');
+            if (colToRemove) colToRemove.remove();
+            table.querySelectorAll('tr').forEach(row => {
+                const cellToRemove = row.children[3]; // TH/TD vid index 3 (fjärde elementet)
+                if (cellToRemove) cellToRemove.remove();
+            });
+        });
+
+        // HÄR ÄR DEN KRITISKA LOGIKEN FÖR DATUM OCH SIGNATUR
+        // Den hämtar värdet från det *levande* fältet och ersätter input-taggen med bara värdet.
+        const dateFieldInClonedDiv = tempResultDiv.querySelector("#inspection-date-field");
+        const liveDateField = document.getElementById('inspection-date-field'); 
+        if (dateFieldInClonedDiv && liveDateField) {
+            dateFieldInClonedDiv.parentElement.innerHTML = liveDateField.value; 
+        } else {
+            console.warn("prepareDocumentContentForWordExport: Datumfält (#inspection-date-field) hittades inte i klonen eller live DOM.");
+        }
+
+        const signatureFieldInClonedDiv = tempResultDiv.querySelector("#signature-field");
+        const liveSignatureField = document.getElementById('signature-field');
+        if (signatureFieldInClonedDiv && liveSignatureField) {
+            signatureFieldInClonedDiv.parentElement.innerHTML = liveSignatureField.value; 
+        } else {
+            console.warn("prepareDocumentContentForWordExport: Signaturfält (#signature-field) hittades inte i klonen eller live DOM.");
+        }
+
+        tempResultDiv.querySelectorAll('.editable-comment').forEach(cell => {
+            cell.textContent = cell.textContent;
+            cell.removeAttribute('contenteditable');
+        });
+
+        return {
+            htmlContent: tempResultDiv.innerHTML,
+            comments: commentsToSave,
+            inspectionDate: finalInspectionDate,
+            signature: liveSignatureField ? liveSignatureField.value : '' // Inkludera signaturen här också, för säkerhets skull
+        };
+    }
+    
+    // --- Funktion för att extrahera all data för JSON-sparning ---
+    function collectAllDataForJSON() {
+        const rawHtmlContent = resultDiv.innerHTML;
+        const commentsData = [];
+        let currentStation = "";
+        resultDiv.querySelectorAll('h1, table.inspection-table').forEach(element => {
+            if (element.tagName === 'H1') {
+                currentStation = element.textContent.trim();
+            } else if (element.tagName === 'TABLE') {
+                const actionColIndex = 1;
+                element.querySelectorAll('tr').forEach((row, rowIndex) => {
+                    if (rowIndex === 0) return;
+                    const statusCell = row.children[0];
+                    const actionCell = row.children[actionColIndex];
+                    const commentCell = row.children[2];
+                    if (statusCell && actionCell && commentCell) {
+                        const statusText = statusCell.textContent.trim().toLowerCase();
+                        const actionText = actionCell.textContent.trim();
+                        const commentText = commentCell.textContent.trim();
+                        if ((statusText === 'anm.' || statusText === 'note') && commentText) {
+                            commentsData.push({ station: currentStation, action: actionText, comment: commentText });
+                        }
+                    }
+                });
+            }
+        });
+
+        const inspectionDateField = document.getElementById('inspection-date-field');
+        const inspectionDate = inspectionDateField ? inspectionDateField.value : new Date().toISOString().slice(0, 10);
+        
+        const signatureField = document.getElementById('signature-field');
+        const signature = signatureField ? signatureField.value : ''; 
+        
+        return {
+            html: rawHtmlContent,
+            lang: currentLang,
+            customer: currentCustomer,
+            machine: currentMachine,
+            inspectionDate: inspectionDate,
+            signature: signature,
+            comments: commentsData,
+            historicalData: historicalData
+        };
+    }
+
 
     function displayContent(blocks) {
         let html = "";
@@ -87,8 +312,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (tableData.length === 0) return;
                 const isSignatureTable = tableData[0][0]?.toLowerCase().includes('date') || tableData[0][0]?.toLowerCase().includes('datum');
                 if (isSignatureTable) {
-                    html += `<table class="table-grid"><tr><th>${tableData[0][0]}</th><th>${tableData[0][1]}</th></tr><tr><td><input type="date" class="form-control" id="inspection-date-field" value="${tableData[1]?.[0] || ''}"></td><td><input type="text" class="form-control" id="signature-field" value="${tableData[1]?.[1] || ''}"></td></tr>`;
-                    if (tableData.length > 2) { html += `<tr><td> </td><td> </td></tr>`; }
+                    html += `<table class="table-grid"><tr><th>${tableData[0][0]}</th><th>${tableData[0][1]}</th></tr><tr><td><input type="date" class="form-control" id="inspection-date-field" name="inspection_date_ui" value="${tableData[1]?.[0] || ''}"></td><td><input type="text" class="form-control" id="signature-field" name="signature_ui" value="${tableData[1]?.[1] || ''}"></td></tr>`;
+                    if (tableData.length > 2) { html += `<tr><td>&nbsp;</td><td>&nbsp;</td></tr>`; }
                     html += '</table>';
                 } else {
                     html += '<table class="table-grid inspection-table">';
@@ -164,64 +389,29 @@ document.addEventListener("DOMContentLoaded", function () {
     // --- EXPORT LOGIC (med städning av historik) ---
     exportForm.addEventListener("submit", function (e) {
         e.preventDefault();
+
+        const exportData = prepareDocumentContentAndCommentsForWordExport(); 
+        if (!exportData) return;
+
+        htmlInput.value = exportData.htmlContent;
+        commentsInput.value = JSON.stringify(exportData.comments);
+        inspectionDateInput.value = exportData.inspectionDate;
+        langInput.value = currentLang;
+        customerInput.value = currentCustomer;
+        machineInput.value = currentMachine;
         
-        const commentsToSave = [];
-        let currentStation = "";
-        resultDiv.querySelectorAll('h1, table.inspection-table').forEach(element => {
-            if (element.tagName === 'H1') {
-                currentStation = element.textContent.trim();
-            } else if (element.tagName === 'TABLE') {
-                const actionColIndex = 1;
-                element.querySelectorAll('tr').forEach((row, rowIndex) => {
-                    if (rowIndex === 0) return;
-                    const statusCell = row.children[0];
-                    const actionCell = row.children[actionColIndex];
-                    const commentCell = row.children[2];
-                    if (statusCell && actionCell && commentCell) {
-                        const statusText = statusCell.textContent.trim().toLowerCase();
-                        const actionText = actionCell.textContent.trim();
-                        const commentText = commentCell.textContent.trim();
-                        if ((statusText === 'anm.' || statusText === 'note') && commentText) {
-                            commentsToSave.push({ station: currentStation, action: actionText, comment: commentText });
-                        }
-                    }
-                });
-            }
-        });
-
-        const dateForFilename = document.getElementById('inspection-date-field')?.value || new Date().toISOString().slice(0, 10);
-        const inspectionDateForFilename = prompt("Ange inspektionsdatum för filnamnet (ÅÅÅÅ-MM-DD):", dateForFilename);
-        if (!inspectionDateForFilename) return;
-
-        const tempResultDiv = document.createElement('div');
-        tempResultDiv.innerHTML = resultDiv.innerHTML;
-
-        // STÄDA BORT HISTORIKEN FRÅN KLONEN
-        tempResultDiv.querySelectorAll('table').forEach(table => {
-            const colToRemove = table.querySelector('colgroup col:nth-child(4)');
-            if (colToRemove) colToRemove.remove();
-            table.querySelectorAll('tr').forEach(row => {
-                const cellToRemove = row.querySelector('th:nth-child(4), td:nth-child(4)');
-                if (cellToRemove) cellToRemove.remove();
-            });
-        });
-
-        const dateField = tempResultDiv.querySelector("#inspection-date-field");
-        if (dateField) { dateField.parentElement.innerHTML = document.getElementById('inspection-date-field').value; }
-        const signatureField = tempResultDiv.querySelector("#signature-field");
-        if (signatureField) { signatureField.parentElement.innerHTML = document.getElementById('signature-field').value; }
-
-        tempResultDiv.querySelectorAll('.editable-comment').forEach(cell => {
-            cell.textContent = cell.textContent;
-            cell.removeAttribute('contenteditable');
-        });
-
+        // NY KOD: Sätt signaturen till det dolda inputfältet
+        // OBS: Kräver <input type="hidden" name="signature" id="signatureInput"> i din index.html
+        const signatureInputHidden = document.getElementById('signatureInput');
+        if (signatureInputHidden) {
+            signatureInputHidden.value = exportData.signature;
+        } else {
+            console.warn("Dolt fält med ID 'signatureInput' saknas i HTML. Signaturen kommer inte skickas till servern.");
+        }
+        
         const formData = new FormData(exportForm);
-        formData.set("html", tempResultDiv.innerHTML);
-        formData.set("comments_json", JSON.stringify(commentsToSave));
-        formData.set("inspection_date", inspectionDateForFilename);
 
-        fetch("/export-word", {
+        fetch(exportForm.action, {
             method: "POST",
             body: formData,
         })
@@ -257,4 +447,33 @@ document.addEventListener("DOMContentLoaded", function () {
             alert('Ett fel uppstod vid exporten.');
         });
     });
+
+    // === Event Listener for Spara tillfälligt (NY LOGIK - JSON) ===
+    if (saveTempDocxButton) {
+        saveTempDocxButton.addEventListener('click', function() {
+            console.log("Spara tillfälligt (JSON)-knappen klickad!");
+
+            const allData = collectAllDataForJSON(); 
+            
+            const customerNamePart = allData.customer.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
+            const machineNamePart = allData.machine.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
+            const datePartForFilename = allData.inspectionDate || new Date().toISOString().slice(0, 10);
+            const filename = `temporar_arbetsfil_${customerNamePart}_${machineNamePart}_${datePartForFilename}.json`;
+            
+            const dataStr = JSON.stringify(allData, null, 2);
+
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            console.log("Temporär JSON-fil nedladdad:", filename);
+            alert("Temporär JSON-fil sparad lokalt!");
+        });
+    }
 });

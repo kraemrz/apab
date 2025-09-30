@@ -14,8 +14,8 @@
   <div class="left">
     <form id="uploadForm">
       <div id="drop-zone">
-        🟢 Släpp en .docx-fil här eller klicka för att välja
-        <input type="file" id="fileInput" name="file" accept=".docx" hidden>
+        🟢 Släpp en .docx eller .json-fil här eller klicka för att välja
+        <input type="file" id="fileInput" name="file" accept=".docx,.json" hidden>
       </div>
     </form>
   </div>
@@ -29,9 +29,11 @@
       <input type="hidden" name="customer" id="customerInput">
       <input type="hidden" name="machine" id="machineInput">
       <input type="hidden" name="comments_json" id="commentsInput">
+      <input type="hidden" name="signature" id="signatureInput">
       <button type="submit">💾 Spara Word</button>
     </form>
     <!-- Knapparna är nu samlade -->
+    <button type="button" id="saveTempDocxButton">💾 Spara tillfälligt</button>
     <button id="history-toggle-button">📜 Visa historik</button>
     <button onclick="toggleDark()">🌙 Mörkt läge</button>
   </div>
