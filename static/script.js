@@ -37,54 +37,76 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const saveTempDocxButton = document.getElementById('saveTempDocxButton');
 
-    // --- NY LOGIK FÖR ONLINE/OFFLINE STATUS ---
-    const saveWordButton = document.getElementById('saveWordSubmitButton');
-
-     // NY: Element för offline-meddelande
+// --- LOGIK FÖR ONLINE/OFFLINE STATUS ---
+    const saveWordButton = exportForm.querySelector('#saveWordSubmitButton'); // Bättre med ID nu
     const offlineMessageElement = document.createElement('div');
     offlineMessageElement.id = 'offline-status-message';
     offlineMessageElement.style.cssText = `
-        background-color: #ffc107; /* Varningsfärg */
+        background-color: #ffc107; 
         color: #343a40;
         padding: 8px 15px;
         border-radius: 5px;
         margin-top: 10px;
-        display: none; /* Dold som standard */
+        display: none; 
         text-align: center;
         font-weight: bold;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     `;
     offlineMessageElement.textContent = '❌ Appen är offline. Vissa funktioner (som att spara Word) kräver internetanslutning.';
-    // Lägg till meddelandet någonstans i DOM, t.ex. inuti exportControls
     exportControls.appendChild(offlineMessageElement);
 
-        function updateOnlineStatus() {
-        if (navigator.onLine) {
-            console.log("Appen är online.");
+    // NY FUNKTION: För att pinga servern och kolla verklig anslutning
+    let isActuallyOnline = navigator.onLine; // Initialvärde
+
+    async function checkRealOnlineStatus() {
+        if (!navigator.onLine) { // Om navigator.onLine redan säger offline, lita på det
+            isActuallyOnline = false;
+            console.log("checkRealOnlineStatus: Navigator.onLine är false, appen är offline.");
+            updateUIBasedOnConnection(false);
+            return;
+        }
+
+        console.log("checkRealOnlineStatus: Pinging servern för att verifiera anslutning...");
+        try {
+            // Skicka ett litet, snabbt anrop till en enkel endpoint på din server.
+            // Skapa en ny, enkel endpoint i Flask som bara returnerar "ok".
+            const response = await fetch('/ping', { method: 'HEAD', cache: 'no-store' }); // HEAD är snabbt, cache: 'no-store' tvingar nätverksanrop
+            isActuallyOnline = response.ok;
+            console.log(`checkRealOnlineStatus: Servern pingad, svar: ${response.status} (${response.ok ? 'OK' : 'Fel'})`);
+        } catch (error) {
+            isActuallyOnline = false;
+            console.error("checkRealOnlineStatus: Fel vid ping av servern, troligen offline:", error);
+        }
+        updateUIBasedOnConnection(isActuallyOnline);
+    }
+
+    function updateUIBasedOnConnection(onlineStatus) {
+        if (onlineStatus) {
+            console.log("Appen är online (verklig anslutning).");
             if (saveWordButton) {
-                saveWordButton.disabled = false; // Aktivera knappen
+                saveWordButton.disabled = false;
                 saveWordButton.style.opacity = '1';
                 saveWordButton.style.cursor = 'pointer';
             }
-            if (offlineMessageElement) offlineMessageElement.style.display = 'none'; // Dölj meddelandet
+            if (offlineMessageElement) offlineMessageElement.style.display = 'none';
         } else {
-            console.log("Appen är offline.");
+            console.log("Appen är offline (ingen verklig anslutning).");
             if (saveWordButton) {
-                saveWordButton.disabled = true; // Avaktivera knappen
-                saveWordButton.style.opacity = '0.5'; // Indikera att den är inaktiv
+                saveWordButton.disabled = true;
+                saveWordButton.style.opacity = '0.5';
                 saveWordButton.style.cursor = 'not-allowed';
             }
-            if (offlineMessageElement) offlineMessageElement.style.display = 'block'; // Visa meddelandet
+            if (offlineMessageElement) offlineMessageElement.style.display = 'block';
         }
     }
 
-    // Registrera eventlyssnare för online/offline-händelser
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
+    // Registrera eventlyssnare. De triggar nu en *verifiering* av anslutningen.
+    window.addEventListener('online', checkRealOnlineStatus);
+    window.addEventListener('offline', checkRealOnlineStatus);
 
-    // Initial körning för att sätta rätt status när sidan laddas
-    updateOnlineStatus(); 
-    // --- SLUT NY LOGIK FÖR ONLINE/OFFLINE STATUS ---
+    // Initial körning
+    checkRealOnlineStatus(); 
+    // --- SLUT LOGIK FÖR ONLINE/OFFLINE STATUS ---
 
     
     // --- EVENT HANDLERS ---
@@ -440,6 +462,10 @@ document.addEventListener("DOMContentLoaded", function () {
     // --- EXPORT LOGIC (med städning av historik) ---
     exportForm.addEventListener("submit", function (e) {
         e.preventDefault();
+        if (!isActuallyOnline) { 
+            alert("Kan inte spara Word-dokument. Du är offline.");
+            return;
+        }
 
         const exportData = prepareDocumentContentAndCommentsForWordExport(); 
         if (!exportData) return;
@@ -527,4 +553,4 @@ document.addEventListener("DOMContentLoaded", function () {
             alert("Temporär JSON-fil sparad lokalt!");
         });
     }
-});
+}); // DOMContentLoaded

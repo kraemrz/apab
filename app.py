@@ -75,6 +75,10 @@ def detect_language_from_doc(document):
     full_text = " ".join(text_content)
     return 'en' if any(keyword in full_text for keyword in TRANSLATIONS['en']['keywords']) else 'sv'
 
+@app.route("/ping", methods=["GET", "HEAD"])
+def ping_server():
+    return "ok", 200 # Returnerar bara en enkel "ok" med status 200
+
 @app.route('/')
 def index():
     return render_template('index.html')
