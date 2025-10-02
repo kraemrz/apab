@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 pyvenv.cfg
 reset_db.py
+automate_build.py
 
 # Miljö
 venv/
