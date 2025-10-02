@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inspection-app-v1';
+const CACHE_NAME = 'apab-app-cache-v1.0.1';
 const URLS_TO_CACHE = [
   '/', // Din startsida
   '/static/style.css',
@@ -35,16 +35,17 @@ self.addEventListener('fetch', event => {
 
 // 3. Hantera uppdateringar av Service Workern
 self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
-          }
+    console.log('Service Worker: Aktiverar och rensar gammal cache.');
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => {
+                    if (cacheName !== CACHE_NAME && cacheName.startsWith('apab-app-cache-')) { // Kontrollera prefix om du har flera appar
+                        console.log('Service Worker: Tar bort gammal cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
         })
-      );
-    })
-  );
+    );
 });
