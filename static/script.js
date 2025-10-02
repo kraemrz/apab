@@ -36,6 +36,56 @@ document.addEventListener("DOMContentLoaded", function () {
     let currentMachine = "Okänd Maskin"; // Initialvärde
 
     const saveTempDocxButton = document.getElementById('saveTempDocxButton');
+
+    // --- NY LOGIK FÖR ONLINE/OFFLINE STATUS ---
+    const saveWordButton = exportForm.querySelector('button[type="submit"]');
+
+     // NY: Element för offline-meddelande
+    const offlineMessageElement = document.createElement('div');
+    offlineMessageElement.id = 'offline-status-message';
+    offlineMessageElement.style.cssText = `
+        background-color: #ffc107; /* Varningsfärg */
+        color: #343a40;
+        padding: 8px 15px;
+        border-radius: 5px;
+        margin-top: 10px;
+        display: none; /* Dold som standard */
+        text-align: center;
+        font-weight: bold;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    `;
+    offlineMessageElement.textContent = '❌ Appen är offline. Vissa funktioner (som att spara Word) kräver internetanslutning.';
+    // Lägg till meddelandet någonstans i DOM, t.ex. inuti exportControls
+    exportControls.appendChild(offlineMessageElement);
+
+        function updateOnlineStatus() {
+        if (navigator.onLine) {
+            console.log("Appen är online.");
+            if (saveWordButton) {
+                saveWordButton.disabled = false; // Aktivera knappen
+                saveWordButton.style.opacity = '1';
+                saveWordButton.style.cursor = 'pointer';
+            }
+            if (offlineMessageElement) offlineMessageElement.style.display = 'none'; // Dölj meddelandet
+        } else {
+            console.log("Appen är offline.");
+            if (saveWordButton) {
+                saveWordButton.disabled = true; // Avaktivera knappen
+                saveWordButton.style.opacity = '0.5'; // Indikera att den är inaktiv
+                saveWordButton.style.cursor = 'not-allowed';
+            }
+            if (offlineMessageElement) offlineMessageElement.style.display = 'block'; // Visa meddelandet
+        }
+    }
+
+    // Registrera eventlyssnare för online/offline-händelser
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+
+    // Initial körning för att sätta rätt status när sidan laddas
+    updateOnlineStatus(); 
+    // --- SLUT NY LOGIK FÖR ONLINE/OFFLINE STATUS ---
+
     
     // --- EVENT HANDLERS ---
     dropZone.addEventListener("click", () => fileInput.click());
@@ -50,6 +100,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 alert("Endast .docx- och .json-filer är tillåtna!");
             }
         }
+ 
     });
     // Drag-and-drop för både .docx och .json
     dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragover"); });
@@ -154,12 +205,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 attachInteractionHandlers(); // Återaktivera interaktionshanterare
                 exportControls.style.display = "flex"; // Visa exportkontroller igen
-                
-                alert("Temporär fil laddades in framgångsrikt!");
+                               
 
             } catch (e) {
                 resultDiv.innerHTML = `❌ Fel vid inläsning av JSON-fil: ${e.message}`;
                 console.error('Fel vid parsning av JSON:', e);
+                alert("Det gick inte att läsa in den temporära filen.");
             }
         };
         reader.onerror = function(event) {
