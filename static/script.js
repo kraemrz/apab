@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const saveTempDocxButton = document.getElementById('saveTempDocxButton');
 
     // --- NY LOGIK FÖR ONLINE/OFFLINE STATUS ---
-    const saveWordButton = exportForm.querySelector('button[type="submit"]');
+    const saveWordButton = document.getElementById('saveWordSubmitButton');
 
      // NY: Element för offline-meddelande
     const offlineMessageElement = document.createElement('div');

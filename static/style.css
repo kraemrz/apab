@@ -197,3 +197,34 @@ body.dark-mode #history-container {
 body.dark-mode .comment-item strong {
   color: #eee;
 }
+
+button:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.6;
+  background-color: #cccccc !important;
+  border-color: #999999 !important;
+  color: #666666 !important;
+}
+
+body.dark-mode button:disabled {
+  background-color: #3a3a3a !important;
+  border-color: #555555 !important;
+  color: #999999 !important;
+}
+
+/* Stil för offline-meddelandet - du kan förfina detta */
+#offline-status-message {
+    background-color: #ffc107; /* Varningsfärg */
+    color: #343a40;
+    padding: 8px 15px;
+    border-radius: 5px;
+    margin-top: 10px;
+    text-align: center;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    font-size: 0.9em; /* Lite mindre text */
+}
+body.dark-mode #offline-status-message {
+    background-color: #6a4a00;
+    color: #eee;
+}
