@@ -4,23 +4,32 @@ from datetime import datetime
 from collections import defaultdict
 import os
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 load_dotenv()
 
-db_user = os.getenv('DB_USER')
-db_password = os.getenv('DB_PASSWORD')
-db_host = os.getenv('DB_HOST')
-db_port_str = os.getenv('DB_PORT')
+DATABASE_URL = os.getenv('DATABASE_URL')
 
-if not all([db_user, db_password, db_host, db_port_str]):
-    raise ValueError("Databas-konfiguration saknas. Se till att DB_USER, DB_PASSWORD, DB_HOST, och DB_PORT är satta i .env-filen.")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL saknas i .env-filen.")
+
+url = urlparse(DATABASE_URL)
+db_name = url.path[1:] # Tar bort det ledande '/'
+db_user = url.username
+db_password = url.password
+db_host = url.hostname
+db_port = url.port
+
+if not all([db_name, db_user, db_password, db_host, db_port]):
+     raise ValueError("Ofullständig DATABASE_URL i .env-filen.")
 
 db = PostgresqlDatabase(
-        'postgres',
+        db_name,
         user=db_user,
         password=db_password,
         host=db_host,
-        port=int(db_port_str)
+        port=db_port,
+        sslmode='require'
     )
 
 class Inspection(Model):
