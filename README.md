@@ -23,9 +23,7 @@
   - [Cloud Deployment](#cloud-deployment)
   - [Local Server Deployment](#local-server-deployment)
 - [PWA & Offline Capability](#pwa--offline-capability)
-- [Contributing](#contributing)
-- [License](#license)
-- [Contact](#contact)
+
 
 ## About the Project
 
@@ -225,17 +223,3 @@ The application is built as a Progressive Web App (PWA). This means:
     Local JSON files can be saved and loaded while offline, allowing continued work without internet access.
 
     Server-dependent features (Word export, database history, .docx parsing) require an active internet connection to the deployed backend. A visual indicator in the UI shows the current online/offline status.
-
-## Contributing
-
-(Optional section - if you plan for others to contribute)
-Contributions are welcome! Please open an issue to discuss proposed changes or submit pull requests.
-## License
-
-(Optional section - choose a license, e.g., MIT, GPL)
-Distributed under the MIT License. See LICENSE for more information.
-
-## Contact
-
-kraemr - kraemrz@gmail.com
-Project Link: https://github.com/kraemrz/apab
