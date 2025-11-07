@@ -83,6 +83,24 @@ def ping_server():
 def index():
     return render_template('index.html')
 
+@app.route('/inspection_editor')
+def inspection_editor():
+    return render_template('inspection_editor.html')
+
+@app.route('/history_page')
+def history_page():
+    return "<h1>Historik-sida under utveckling...</h1><p><a href='/'>Tillbaka till huvudmenyn</a></p>"
+
+@app.route('/backlog_page')
+def backlog_page():
+    return "<h1>Backlogg-sida under utveckling...</h1><p><a href='/'>Tillbaka till huvudmenyn</a></p>"
+
+@app.route('/service_report_page')
+def service_report_page():
+    return "<h1>Servicerapport-sida under utveckling...</h1><p><a href='/'>Tillbaka till huvudmenyn</a></p>"
+
+
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files: return jsonify({"error": "No file part"}), 400

@@ -4,45 +4,92 @@
   <meta name="theme-color" content="#f0c040">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <meta charset="UTF-8" />
-  <title>Inspektionsprotokoll</title>
+  <title>APAB - Huvudmeny</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    /* Lite enkel CSS för menyn */
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #e6d7d7; /* Matchar din befintliga bakgrund */
+      color: #222;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .menu-container {
+      background: white;
+      padding: 3rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+      text-align: center;
+      max-width: 500px;
+      width: 90%;
+    }
+    .menu-container h1 {
+      color: #f0c040;
+      margin-bottom: 2rem;
+    }
+    .menu-container ul {
+      list-style: none;
+      padding: 0;
+    }
+    .menu-container li {
+      margin-bottom: 1rem;
+    }
+    .menu-container a {
+      display: block;
+      padding: 1rem;
+      background-color: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      text-decoration: none;
+      color: #333;
+      font-weight: 500;
+      transition: background-color 0.2s, transform 0.2s;
+    }
+    .menu-container a:hover {
+      background-color: #e0e0e0;
+      transform: translateY(-2px);
+    }
+
+    /* Dark mode support */
+    body.dark-mode {
+        background-color: #1e1e1e;
+        color: #eee;
+    }
+    body.dark-mode .menu-container {
+        background: #2a2a2a;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    body.dark-mode .menu-container h1 {
+        color: #f0c040; /* Behåll samma accentfärg */
+    }
+    body.dark-mode .menu-container a {
+        background-color: #444;
+        border-color: #666;
+        color: #eee;
+    }
+    body.dark-mode .menu-container a:hover {
+        background-color: #555;
+        transform: translateY(-2px);
+    }
+  </style>
 </head>
 <body>
-
-<!-- === TOP-CONTROLLER === -->
-<div class="controls">
-  <div class="left">
-    <form id="uploadForm">
-      <div id="drop-zone">
-        🟢 Släpp en .docx eller .json-fil här eller klicka för att välja
-        <input type="file" id="fileInput" name="file" accept=".docx,.json" hidden>
-      </div>
-    </form>
+  <div class="menu-container">
+    <h1>Välkommen till APAB Inspektion</h1>
+    <ul>
+      <li><a href="{{ url_for('inspection_editor') }}">📝 Inspektionsprotokoll</a></li>
+      <li><a href="{{ url_for('history_page') }}">📜 Historik & Sök</a></li>
+      <li><a href="{{ url_for('backlog_page') }}">✅ Backlogg</a></li>
+      <li><a href="{{ url_for('service_report_page') }}">🛠️ Servicerapport</a></li>
+    </ul>
+    <!-- Lägg till mörkt läge-knappen om du vill ha den här också -->
+    <button onclick="toggleDark()" style="margin-top: 1rem;">🌙 Mörkt läge</button>
   </div>
 
-  <div class="right" id="exportControls" style="display: none;">
-    <!-- Export-formulär -->
-    <form id="exportForm" method="POST" action="/export-word">
-      <input type="hidden" name="html" id="htmlInput" />
-      <input type="hidden" name="inspection_date" id="inspectionDateInput">
-      <input type="hidden" name="lang" id="langInput">
-      <input type="hidden" name="customer" id="customerInput">
-      <input type="hidden" name="machine" id="machineInput">
-      <input type="hidden" name="comments_json" id="commentsInput">
-      <input type="hidden" name="signature" id="signatureInput">
-      <button type="submit" id="saveWordSubmitButton">💾 Spara Word</button>
-    </form>
-    <!-- Knapparna är nu samlade -->
-    <button type="button" id="saveTempDocxButton">💾 Spara tillfälligt</button>
-    <button id="history-toggle-button">📜 Visa historik</button>
-    <button onclick="toggleDark()">🌙 Mörkt läge</button>
-  </div>
-</div>
-
-<div class="container">
-  <div id="result">📝 Ladda upp ett dokument...</div>
-</div>
-
-<script src="{{ url_for('static', filename='script.js') }}"></script>
+  <!-- Din script.js kan innehålla toggleDark funktionen -->
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

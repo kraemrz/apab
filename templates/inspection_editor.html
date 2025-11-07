@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta name="theme-color" content="#f0c040">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <meta charset="UTF-8" />
+  <title>Inspektionsprotokoll</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<!-- === TOP-CONTROLLER === -->
+<div class="controls">
+  <div class="left">
+    <form id="uploadForm">
+      <div id="drop-zone">
+        🟢 Släpp en .docx eller .json-fil här eller klicka för att välja
+        <input type="file" id="fileInput" name="file" accept=".docx,.json" hidden>
+      </div>
+    </form>
+  </div>
+
+  <div class="right" id="exportControls" style="display: none;">
+    <!-- Export-formulär -->
+    <form id="exportForm" method="POST" action="/export-word">
+      <input type="hidden" name="html" id="htmlInput" />
+      <input type="hidden" name="inspection_date" id="inspectionDateInput">
+      <input type="hidden" name="lang" id="langInput">
+      <input type="hidden" name="customer" id="customerInput">
+      <input type="hidden" name="machine" id="machineInput">
+      <input type="hidden" name="comments_json" id="commentsInput">
+      <input type="hidden" name="signature" id="signatureInput">
+      <button type="submit" id="saveWordSubmitButton">💾 Spara Word</button>
+    </form>
+    <!-- Knapparna är nu samlade -->
+    <button type="button" id="saveTempDocxButton">💾 Spara tillfälligt</button>
+    <button id="history-toggle-button">📜 Visa historik</button>
+    <button onclick="toggleDark()">🌙 Mörkt läge</button>
+  </div>
+</div>
+
+<div class="container">
+  <div id="result">📝 Ladda upp ett dokument...</div>
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
