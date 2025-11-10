@@ -1,0 +1,55 @@
+services:
+  # --- PRODUKTIONSDATABAS (t.ex. din nuvarande lokala PG) ---
+  db-prod:
+    image: postgres:14-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_PROD_NAME} # Läs från Docker Compose's .env
+      POSTGRES_USER: ${DB_PROD_USER} # Läs från Docker Compose's .env
+      POSTGRES_PASSWORD: ${DB_PROD_PASSWORD} # Läs från Docker Compose's .env
+    volumes:
+      - db-prod-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # --- TESTDATABAS ---
+  db-test:
+    image: postgres:14-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_TEST_NAME} # Läs från Docker Compose's .env
+      POSTGRES_USER: ${DB_TEST_USER} # Läs från Docker Compose's .env
+      POSTGRES_PASSWORD: ${DB_TEST_PASSWORD} # Läs från Docker Compose's .env
+    volumes:
+      - db-test-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+  app:
+    build: .
+    ports:
+      - "3000:5000"
+    environment:
+      # --- Variabler för app-containern ---
+      USE_TEST_DB: "${USE_TEST_DB}"
+      
+      # DATABASE_URL_TEST byggs här från variabler från Docker Compose's .env
+      DATABASE_URL_TEST: "postgres://${DB_TEST_USER}:${DB_TEST_PASSWORD}@db-test:5432/${DB_TEST_NAME}"
+      
+      # DATABASE_URL byggs här från variabler från Docker Compose's .env (om lokal prod)
+      # Eller så kan du ha den peka på Supabase här om det är din prod databas
+      # DATABASE_URL: "postgres://${DB_PROD_USER}:${DB_PROD_PASSWORD}@db-prod:5432/${DB_PROD_NAME}"
+      # ELLER, om produktions-databasen är Supabase:
+      DATABASE_URL: "postgres://${SUPABASE_USER}:${SUPABASE_PASSWORD}@${SUPABASE_HOST}:${SUPABASE_PORT}/${SUPABASE_DB_NAME}"
+      
+      # Andra hemligheter för appen
+      SECRET_KEY: ${APP_SECRET_KEY} # Läs från Docker Compose's .env
+
+    depends_on:
+      - db-prod
+      - db-test
+    restart: always
+
+volumes:
+  db-prod-data:
+  db-test-data:
