@@ -1,10 +1,42 @@
-// static/script.js (Den fullständigt korrigerade och kompletta versionen)
+// static/script.js (Den SLUTGILTIGT korrigerade och FUNGERANDE versionen - med Autosave)
+
+// --- Hjälpfunktioner (Utanför DOMContentLoaded för global tillgänglighet) ---
+function debounce(func, delay) {
+    let timeout;
+    return function(...args) {
+        const context = this;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), delay);
+    };
+}
+
+async function writeDataToFileHandle(fileHandle, blob) {
+    if (!fileHandle || typeof fileHandle.createWritable !== 'function') {
+        throw new Error("Invalid FileSystemFileHandle provided to writeDataToFileHandle.");
+    }
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+}
+
+function fallbackDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+// --- Slut Hjälpfunktioner ---
+
 
 document.addEventListener("DOMContentLoaded", function () {
     // --- SERVICE WORKER REGISTRATION ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            // FIX: Ändrat 'service-worker' till 'serviceWorker' (CamelCase)
             navigator.serviceWorker.register('/sw.js').then(registration => {
                 console.log('Service Worker registered with scope:', registration.scope);
             }).catch(error => {
@@ -21,7 +53,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const exportControls = document.getElementById("exportControls");
     const historyToggleButton = document.getElementById('history-toggle-button');
     
-    // FIX: Deklarera referenser till de dolda inputfälten här
     const htmlInput = document.getElementById('htmlInput');
     const inspectionDateInput = document.getElementById('inspectionDateInput');
     const langInput = document.getElementById('langInput');
@@ -30,15 +61,22 @@ document.addEventListener("DOMContentLoaded", function () {
     const commentsInput = document.getElementById('commentsInput');
 
     let historicalData = {};
-    let comments = []; // Antar att denna globala variabel håller kommentarerna
-    let currentLang = "sv"; // Initialvärde
-    let currentCustomer = "Okänd Kund"; // Initialvärde
-    let currentMachine = "Okänd Maskin"; // Initialvärde
+    let comments = []; 
+    let currentLang = "sv"; 
+    let currentCustomer = "Okänd Kund"; 
+    let currentMachine = "Okänd Maskin"; 
 
     const saveTempDocxButton = document.getElementById('saveTempDocxButton');
+    console.log("DOMContentLoaded: saveTempDocxButton element found:", saveTempDocxButton); // Felsökningslogg
 
-// --- LOGIK FÖR ONLINE/OFFLINE STATUS ---
-    const saveWordButton = exportForm.querySelector('#saveWordSubmitButton'); // Bättre med ID nu
+    // --- LOGIK FÖR ONLINE/OFFLINE STATUS ---
+    // Antar att saveWordSubmitButton är ID för knappen i exportForm
+    const saveWordButton = exportForm.querySelector('button[type="submit"]#saveWordSubmitButton'); 
+    if (!saveWordButton) { 
+        console.warn("saveWordButton med ID #saveWordSubmitButton hittades inte, använder första submit-knappen i exportForm.");
+        saveWordButton = exportForm.querySelector('button[type="submit"]');
+    }
+    
     const offlineMessageElement = document.createElement('div');
     offlineMessageElement.id = 'offline-status-message';
     offlineMessageElement.style.cssText = `
@@ -55,11 +93,10 @@ document.addEventListener("DOMContentLoaded", function () {
     offlineMessageElement.textContent = '❌ Appen är offline. Vissa funktioner (som att spara Word) kräver internetanslutning.';
     exportControls.appendChild(offlineMessageElement);
 
-    // NY FUNKTION: För att pinga servern och kolla verklig anslutning
-    let isActuallyOnline = navigator.onLine; // Initialvärde
+    let isActuallyOnline = navigator.onLine;
 
     async function checkRealOnlineStatus() {
-        if (!navigator.onLine) { // Om navigator.onLine redan säger offline, lita på det
+        if (!navigator.onLine) {
             isActuallyOnline = false;
             console.log("checkRealOnlineStatus: Navigator.onLine är false, appen är offline.");
             updateUIBasedOnConnection(false);
@@ -68,9 +105,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         console.log("checkRealOnlineStatus: Pinging servern för att verifiera anslutning...");
         try {
-            // Skicka ett litet, snabbt anrop till en enkel endpoint på din server.
-            // Skapa en ny, enkel endpoint i Flask som bara returnerar "ok".
-            const response = await fetch('/ping', { method: 'HEAD', cache: 'no-store' }); // HEAD är snabbt, cache: 'no-store' tvingar nätverksanrop
+            const response = await fetch('/ping', { method: 'HEAD', cache: 'no-store' });
             isActuallyOnline = response.ok;
             console.log(`checkRealOnlineStatus: Servern pingad, svar: ${response.status} (${response.ok ? 'OK' : 'Fel'})`);
         } catch (error) {
@@ -100,29 +135,66 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Registrera eventlyssnare. De triggar nu en *verifiering* av anslutningen.
     window.addEventListener('online', checkRealOnlineStatus);
     window.addEventListener('offline', checkRealOnlineStatus);
-
-    // Initial körning
     checkRealOnlineStatus(); 
     // --- SLUT LOGIK FÖR ONLINE/OFFLINE STATUS ---
 
-    
+
+    // --- Globala variabler för Autosave-hantering ---
+    let currentAutosaveFileHandle = null; 
+    let currentAutosaveFilename = '';     
+    // --- Slut Globala variabler för Autosave-hantering ---
+
+    // --- Autosave-funktioner ---
+    const debouncedAutosave = debounce(autosaveToJson, 2000); 
+
+    async function autosaveToJson() {
+        if (!currentAutosaveFileHandle) {
+            console.log("Autosave: Inget filhandtag lagrat, hoppar över autosave.");
+            return;
+        }
+        // Tillåt autosave även om resultDiv är tom, den sparar då bara metadata.
+        // if (!resultDiv.innerHTML || resultDiv.innerHTML.trim() === '📝 Ladda upp ett dokument...') {
+        //     console.log("Autosave: Inget meningsfullt innehåll att spara, hoppar över autosave.");
+        //     return;
+        // }
+
+        console.log("Autosave: Triggar autosparning till fil:", currentAutosaveFilename);
+        const allData = collectAllDataForJSON();
+        const dataStr = JSON.stringify(allData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+
+        try {
+            await writeDataToFileHandle(currentAutosaveFileHandle, blob);
+            console.log("Autosave: Data sparad tyst till befintlig fil.");
+        } catch (error) {
+            console.error("Autosave: Kunde inte spara tyst till filen:", error);
+            if (error.name === 'NotFoundError' || error.name === 'NotAllowedError' || error.name === 'SecurityError') {
+                alert("Autosparning misslyckades: Filen kunde inte hittas eller åtkomst nekades. Spara manuellt för att återaktivera autosparning.");
+                currentAutosaveFileHandle = null;
+                currentAutosaveFilename = '';
+            } else {
+                 alert(`Autosparning misslyckades oväntat: ${error.message}. Spara manuellt för att återaktivera autosparning.`);
+            }
+        }
+    }
+    // --- Slut Autosave-funktioner ---
+
+
     // --- EVENT HANDLERS ---
     dropZone.addEventListener("click", () => fileInput.click());
     fileInput.addEventListener("change", (e) => {
         if (e.target.files.length > 0) {
             const file = e.target.files[0];
             if (file.name.endsWith(".docx")) {
-                handleFileUpload(file); // För .docx, använd befintlig logik
+                handleFileUpload(file);
             } else if (file.name.endsWith(".json")) {
-                processJSONFile(file); // För .json, använd ny logik
+                processJSONFile(file);
             } else {
                 alert("Endast .docx- och .json-filer är tillåtna!");
             }
         }
- 
     });
     // Drag-and-drop för både .docx och .json
     dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragover"); });
@@ -154,7 +226,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // --- MAIN FUNCTIONS ---
-    // Funktion för att hantera uppladdning av .docx-filer (befintlig server-side logik)
     function handleFileUpload(file) {
         const formData = new FormData();
         formData.append("file", file);
@@ -165,30 +236,34 @@ document.addEventListener("DOMContentLoaded", function () {
             .then(data => {
                 if (data.error) {
                     resultDiv.innerHTML = `❌ Fel vid inläsning: ${data.error}`;
+                    currentAutosaveFileHandle = null; // Stäng av autosave vid fel
+                    currentAutosaveFilename = '';
                 } else {
                     historicalData = data.history || {};
                     resultDiv.dataset.lang = data.lang;
                     displayContent(data.blocks);
                     
-                    // Uppdatera globala variabler med data från servern
                     currentLang = data.lang;
                     currentCustomer = data.customer;
                     currentMachine = data.machine;
 
-                    // Fyll de dolda fälten med de nu aktuella värdena (OBS! HTML/Comments fylls av prepareDocumentContent...)
                     langInput.value = data.lang;
                     customerInput.value = data.customer;
                     machineInput.value = data.machine;
                     exportControls.style.display = "flex";
                 }
             })
-            .catch(error => { resultDiv.innerHTML = '❌ Ett fel uppstod vid kommunikation med servern.'; console.error(error); });
+            .catch(error => { 
+                resultDiv.innerHTML = '❌ Ett fel uppstod vid kommunikation med servern.'; 
+                console.error(error);
+                currentAutosaveFileHandle = null; // Stäng av autosave vid fel
+                currentAutosaveFilename = '';
+            });
     }
 
-    // NY FUNKTION: För att hantera uppladdning av .json-filer (klientside-logik)
     function processJSONFile(file) {
         resultDiv.innerHTML = '🔄 Laddar in temporär JSON-fil...';
-        exportControls.style.display = 'none'; // Dölj kontroller tills data är laddad
+        exportControls.style.display = 'none';
 
         const reader = new FileReader();
         reader.onload = function(event) {
@@ -196,38 +271,36 @@ document.addEventListener("DOMContentLoaded", function () {
                 const jsonData = JSON.parse(event.target.result);
                 console.log("JSON-data inläst:", jsonData);
 
-                // Populera resultDiv med sparad HTML
                 resultDiv.innerHTML = jsonData.html || '';
                 resultDiv.dataset.lang = jsonData.lang || 'sv';
 
-                // Dölj historiken när JSON laddas in
                 resultDiv.classList.add('history-hidden'); 
                 historyToggleButton.textContent = '📜 Visa historik'; 
 
-                // Uppdatera globala variabler med sparad data
                 currentLang = jsonData.lang || 'sv';
                 currentCustomer = jsonData.customer || 'Okänd Kund';
                 currentMachine = jsonData.machine || 'Okänd Maskin';
-                comments = jsonData.comments || []; // Ladda in sparade kommentarer
-                historicalData = jsonData.historicalData || {}; // Ladda in historikdata om den sparades
+                comments = jsonData.comments || []; 
+                historicalData = jsonData.historicalData || {}; 
 
-                // Fyll dolda input-fält för exportForm
                 langInput.value = currentLang;
                 customerInput.value = currentCustomer;
                 machineInput.value = currentMachine;
-                // inspectionDateInput och htmlInput fylls senare vid export/temp-save
-                // commentsInput fylls också av prepareDocumentContent...
 
-                // Uppdatera synliga inputfält om de finns i DOM
                 const inspectionDateField = document.getElementById('inspection-date-field');
                 if (inspectionDateField) inspectionDateField.value = jsonData.inspectionDate || new Date().toISOString().slice(0, 10);
                 
                 const signatureField = document.getElementById('signature-field');
-                if (signatureField) signatureField.value = jsonData.signature || ''; // Ladda in signaturvärde om det finns i JSON
+                if (signatureField) signatureField.value = jsonData.signature || '';
 
-                attachInteractionHandlers(); // Återaktivera interaktionshanterare
-                exportControls.style.display = "flex"; // Visa exportkontroller igen
-                               
+                attachInteractionHandlers(); 
+                exportControls.style.display = "flex"; 
+                
+                // --- NY KOD: Efter lyckad JSON-laddning, sätt upp för autosave ---
+                // Autosave triggas först efter *manuell sparning*, inte *laddning*.
+                currentAutosaveFileHandle = null; // Vi vill inte autospara till en laddad fil direkt
+                currentAutosaveFilename = '';
+                // -----------------------------------------------------------------
 
             } catch (e) {
                 resultDiv.innerHTML = `❌ Fel vid inläsning av JSON-fil: ${e.message}`;
@@ -248,10 +321,13 @@ document.addEventListener("DOMContentLoaded", function () {
     function prepareDocumentContentAndCommentsForWordExport(skipPrompt = false) {
         const commentsToSave = [];
         let currentStation = "";
-        resultDiv.querySelectorAll('h1, table.inspection-table').forEach(element => {
-            if (element.tagName === 'H1') {
+        resultDiv.querySelectorAll('h1, h2, table.inspection-table').forEach(element => { 
+            if (element.tagName === 'H1' || element.tagName === 'H2') { 
                 currentStation = element.textContent.trim();
-            } else if (element.tagName === 'TABLE') {
+                if (currentStation.toLowerCase().includes('datum för utförd inspektion')) {
+                    currentStation = ""; 
+                }
+            } else if (element.tagName === 'TABLE' && element.classList.contains('inspection-table')) {
                 const actionColIndex = 1;
                 element.querySelectorAll('tr').forEach((row, rowIndex) => {
                     if (rowIndex === 0) return;
@@ -262,8 +338,14 @@ document.addEventListener("DOMContentLoaded", function () {
                         const statusText = statusCell.textContent.trim().toLowerCase();
                         const actionText = actionCell.textContent.trim();
                         const commentText = commentCell.textContent.trim();
-                        if ((statusText === 'anm.' || statusText === 'note') && commentText) {
-                            commentsToSave.push({ station: currentStation, action: actionText, comment: commentText });
+                        
+                        const normalizedCommentText = normalizeComment(commentText); 
+                        if ((statusText === 'anm.' || statusText === 'note') && normalizedCommentText) {
+                            commentsToSave.push({ 
+                                station: currentStation, 
+                                action: actionText, 
+                                comment: normalizedCommentText 
+                            });
                         }
                     }
                 });
@@ -280,7 +362,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         const tempResultDiv = document.createElement('div');
-        tempResultDiv.innerHTML = resultDiv.innerHTML; // KLONA DET RÅA INNEHÅLLET
+        tempResultDiv.innerHTML = resultDiv.innerHTML; 
 
         // STÄDA BORT HISTORIKEN FRÅN KLONEN
         tempResultDiv.querySelectorAll('table').forEach(table => {
@@ -292,8 +374,6 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         });
 
-        // HÄR ÄR DEN KRITISKA LOGIKEN FÖR DATUM OCH SIGNATUR
-        // Den hämtar värdet från det *levande* fältet och ersätter input-taggen med bara värdet.
         const dateFieldInClonedDiv = tempResultDiv.querySelector("#inspection-date-field");
         const liveDateField = document.getElementById('inspection-date-field'); 
         if (dateFieldInClonedDiv && liveDateField) {
@@ -319,19 +399,24 @@ document.addEventListener("DOMContentLoaded", function () {
             htmlContent: tempResultDiv.innerHTML,
             comments: commentsToSave,
             inspectionDate: finalInspectionDate,
-            signature: liveSignatureField ? liveSignatureField.value : '' // Inkludera signaturen här också, för säkerhets skull
+            signature: liveSignatureField ? liveSignatureField.value : '' 
         };
     }
     
-    // --- Funktion för att extrahera all data för JSON-sparning ---
     function collectAllDataForJSON() {
         const rawHtmlContent = resultDiv.innerHTML;
         const commentsData = [];
         let currentStation = "";
-        resultDiv.querySelectorAll('h1, table.inspection-table').forEach(element => {
-            if (element.tagName === 'H1') {
+
+
+
+        resultDiv.querySelectorAll('h1, h2, table.inspection-table').forEach(element => { 
+            if (element.tagName === 'H1' || element.tagName === 'H2') { 
                 currentStation = element.textContent.trim();
-            } else if (element.tagName === 'TABLE') {
+                if (currentStation.toLowerCase().includes('datum för utförd inspektion')) {
+                    currentStation = ""; 
+                }
+            } else if (element.tagName === 'TABLE' && element.classList.contains('inspection-table')) {
                 const actionColIndex = 1;
                 element.querySelectorAll('tr').forEach((row, rowIndex) => {
                     if (rowIndex === 0) return;
@@ -342,8 +427,14 @@ document.addEventListener("DOMContentLoaded", function () {
                         const statusText = statusCell.textContent.trim().toLowerCase();
                         const actionText = actionCell.textContent.trim();
                         const commentText = commentCell.textContent.trim();
-                        if ((statusText === 'anm.' || statusText === 'note') && commentText) {
-                            commentsData.push({ station: currentStation, action: actionText, comment: commentText });
+                        
+                        const normalizedCommentText = normalizeComment(commentText); 
+                        if ((statusText === 'anm.' || statusText === 'note') && normalizedCommentText) {
+                            commentsData.push({ 
+                                station: currentStation, 
+                                action: actionText, 
+                                comment: normalizedCommentText 
+                            });
                         }
                     }
                 });
@@ -366,6 +457,12 @@ document.addEventListener("DOMContentLoaded", function () {
             comments: commentsData,
             historicalData: historicalData
         };
+    }
+    function normalizeComment(commentText) {
+        if (!commentText || commentText.trim().toUpperCase() === 'U/A' || commentText.trim().toUpperCase() === 'WITHOUT NOTICE') {
+            return '';
+        }
+        return commentText.trim();
     }
 
 
@@ -402,7 +499,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         if (historyItems && historyItems.length > 0) {
                             historyHtml = historyItems.map(h => `<div class="history-item"><strong>${h.date}:</strong> ${h.comment}</div>`).join('');
                         }
-                        html += `<tr><td>${row[0] || ''}</td><td>${actionText}</td><td contenteditable="true" class="editable-comment">${row[2] || ''}</td><td class="history-cell">${historyHtml}</td></tr>`;
+                        html += `<tr><td>${row[0] || ''}</td><td>${actionText}</td><td contenteditable="true" class="editable-comment">${row[2] || ''}</td><td class=\"history-cell\">${historyHtml}</td></tr>`;
                     });
                     html += '</table>';
                 }
@@ -429,9 +526,13 @@ document.addEventListener("DOMContentLoaded", function () {
             cell.removeEventListener('keydown', handleCellNavigation);
             cell.removeEventListener('focus', selectAllText);
             cell.removeEventListener('input', updateStatusOnInput);
+            
+            cell.removeEventListener('input', debouncedAutosave); // Säkerställ att gamla lyssnare tas bort
+            cell.addEventListener('input', debouncedAutosave); // Koppla debounced autosave
+
             cell.addEventListener('keydown', handleCellNavigation);
             cell.addEventListener('focus', selectAllText);
-            cell.addEventListener('input', updateStatusOnInput);
+            cell.addEventListener('input', updateStatusOnInput); 
         });
     }
 
@@ -477,8 +578,6 @@ document.addEventListener("DOMContentLoaded", function () {
         customerInput.value = currentCustomer;
         machineInput.value = currentMachine;
         
-        // NY KOD: Sätt signaturen till det dolda inputfältet
-        // OBS: Kräver <input type="hidden" name="signature" id="signatureInput"> i din index.html
         const signatureInputHidden = document.getElementById('signatureInput');
         if (signatureInputHidden) {
             signatureInputHidden.value = exportData.signature;
@@ -527,30 +626,50 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // === Event Listener for Spara tillfälligt (NY LOGIK - JSON) ===
     if (saveTempDocxButton) {
-        saveTempDocxButton.addEventListener('click', function() {
-            console.log("Spara tillfälligt (JSON)-knappen klickad!");
+        saveTempDocxButton.addEventListener('click', async function() { // <-- async
+            console.log("Spara tillfälligt (JSON)-knappen klickad!"); // <-- DENNA LOGGAS NU!
 
             const allData = collectAllDataForJSON(); 
             
             const customerNamePart = allData.customer.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
             const machineNamePart = allData.machine.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
             const datePartForFilename = allData.inspectionDate || new Date().toISOString().slice(0, 10);
-            const filename = `temporar_arbetsfil_${customerNamePart}_${machineNamePart}_${datePartForFilename}.json`;
+            const baseFilename = `temporar_arbetsfil_${customerNamePart}_${machineNamePart}_${datePartForFilename}.json`;
             
             const dataStr = JSON.stringify(allData, null, 2);
-
             const blob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            console.log("Temporär JSON-fil nedladdad:", filename);
-            alert("Temporär JSON-fil sparad lokalt!");
+
+            try {
+                // Använd File System Access API för att få ett handtag
+                const options = {
+                    suggestedName: baseFilename,
+                    types: [{
+                        description: 'JSON Files',
+                        accept: { 'application/json': ['.json'] },
+                    }],
+                };
+                // 'window.showSaveFilePicker' returnerar ett Promise.
+                currentAutosaveFileHandle = await window.showSaveFilePicker(options); // KORREKT TILLDELNING
+                currentAutosaveFilename = currentAutosaveFileHandle.name; // Spara filnamnet
+                
+                await writeDataToFileHandle(currentAutosaveFileHandle, blob);
+                
+                console.log("Temporär JSON-fil sparad och filhandtag lagrat:", currentAutosaveFilename);
+                alert("Temporär JSON-fil sparad lokalt! Autosparning aktiverad för denna fil.");
+            } catch (error) {
+                console.error("Kunde inte spara fil med File System Access API:", error);
+                if (error.name === 'AbortError') {
+                    alert("Filsparning avbruten av användaren. Autosparning är inte aktiverad.");
+                } else if (typeof window.showSaveFilePicker === 'undefined') { // KORRIGERAD TYPO: window.showSaveFilePicker
+                    alert("Din webbläsare stöder inte File System Access API. Autosparning kan inte aktiveras till samma fil. Filen laddades ner normalt.");
+                    fallbackDownload(blob, baseFilename);
+                } else {
+                    alert(`Ett oväntat fel uppstod vid sparning: ${error.message}. Filen laddades ner normalt.`);
+                    fallbackDownload(blob, baseFilename);
+                }
+                currentAutosaveFileHandle = null; // Återställ om det misslyckas
+                currentAutosaveFilename = '';
+            }
         });
     }
 }); // DOMContentLoaded

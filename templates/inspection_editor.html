@@ -43,6 +43,40 @@
   <div id="result">📝 Ladda upp ett dokument...</div>
 </div>
 
+  <!-- NY KOD: Plats för varning om icke-Chromium webbläsare -->
+  <div id="browserWarning" style="display: none; background-color: #ffc107; color: #343a40; padding: 8px 15px; border-radius: 5px; margin-top: 10px; text-align: center; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    ⚠ För bästa upplevelse och full funktionalitet (inklusive autosparning) rekommenderas Google Chrome eller Microsoft Edge.
+  </div>
+</div>
+
+<!-- ... din befintliga script.js laddning ... -->
+<script>
+    // --- NY KOD: Detektera Chromium webbläsare ---
+    function isChromium() {
+        // Kontrollerar om 'window.chrome' objektet finns och om det finns en 'vendor' property som innehåller 'Google Inc.'
+        // Detta är ett ganska robust sätt att detektera Chromium-baserade webbläsare.
+        return (!!window.chrome && (navigator.vendor === 'Google Inc.'));
+    }
+
+    // När DOM är laddad, kör kontrollen
+    document.addEventListener('DOMContentLoaded', function() {
+        const browserWarningElement = document.getElementById('browserWarning');
+        const saveTempDocxButton = document.getElementById('saveTempDocxButton'); // Måste hämta referensen här också
+
+        if (browserWarningElement && !isChromium()) {
+            browserWarningElement.style.display = 'block'; // Visa varningen
+            
+            // Valfritt: Inaktivera "Spara tillfälligt" om det inte är Chromium
+            if (saveTempDocxButton) {
+                saveTempDocxButton.disabled = true;
+                saveTempDocxButton.style.opacity = '0.5';
+                saveTempDocxButton.style.cursor = 'not-allowed';
+                saveTempDocxButton.title = "Kräver Chrome/Edge för full autosave-funktionalitet.";
+            }
+        }
+    });
+</script>
+
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
