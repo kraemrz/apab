@@ -95,11 +95,9 @@ def history_page():
 def backlog_page():
     return "<h1>Backlogg-sida under utveckling...</h1><p><a href='/'>Tillbaka till huvudmenyn</a></p>"
 
-@app.route('/service_report_page')
-def service_report_page():
-    return "<h1>Servicerapport-sida under utveckling...</h1><p><a href='/'>Tillbaka till huvudmenyn</a></p>"
-
-
+@app.route('/service_report')
+def service_report():
+    return render_template('service_report.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
