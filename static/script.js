@@ -32,9 +32,27 @@ function fallbackDownload(blob, filename) {
 }
 // --- Slut Hjälpfunktioner ---
 
+// --- KNAPP MÖRKT/LJUST LÄGE ---
 window.toggleDark = function() { 
-        document.body.classList.toggle('dark-mode'); 
-    };
+// Toggla klassen på body
+document.body.classList.toggle('dark-mode'); 
+
+// Hitta knappen (använd det ID vi bestämde)
+const toggleButton = document.getElementById('theme-toggle-btn'); 
+
+if (toggleButton) {
+    // Kontrollera om body NU har dark-mode klassen
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    
+    if (isDarkMode) {
+        // Om den är mörk, ändra texten till Ljust Läge
+        toggleButton.innerHTML = '☀️ Ljust läge';
+    } else {
+        // Om den är ljus, ändra texten till Mörkt Läge
+        toggleButton.innerHTML = '🌙 Mörkt läge';
+    }
+}
+};
 
 document.addEventListener("DOMContentLoaded", function () {
     // --- SERVICE WORKER REGISTRATION ---
@@ -143,7 +161,6 @@ document.addEventListener("DOMContentLoaded", function () {
     checkRealOnlineStatus(); 
     // --- SLUT LOGIK FÖR ONLINE/OFFLINE STATUS ---
 
-
     // --- Globala variabler för Autosave-hantering ---
     let currentAutosaveFileHandle = null; 
     let currentAutosaveFilename = '';     
@@ -217,24 +234,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
     
-    // window.toggleDark = function() { document.body.classList.toggle('dark-mode'); };
-
-    const toggleButton = document.getElementById('dark-mode-toggle'); 
-    
-    if (toggleButton) {
-        toggleButton.addEventListener('click', function() {
-            window.toggleDark();
-        });
-    }
-    
-    historyToggleButton.addEventListener('click', () => {
-        resultDiv.classList.toggle('history-hidden');
-        if (resultDiv.classList.contains('history-hidden')) {
-            historyToggleButton.textContent = '📜 Visa historik';
-        } else {
-            historyToggleButton.textContent = '📜 Dölj historik';
-        }
-    });
 
     // --- MAIN FUNCTIONS ---
     function handleFileUpload(file) {
