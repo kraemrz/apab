@@ -32,6 +32,9 @@ function fallbackDownload(blob, filename) {
 }
 // --- Slut Hjälpfunktioner ---
 
+window.toggleDark = function() { 
+        document.body.classList.toggle('dark-mode'); 
+    };
 
 document.addEventListener("DOMContentLoaded", function () {
     // --- SERVICE WORKER REGISTRATION ---
@@ -67,7 +70,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let currentMachine = "Okänd Maskin"; 
 
     const saveTempDocxButton = document.getElementById('saveTempDocxButton');
-    console.log("DOMContentLoaded: saveTempDocxButton element found:", saveTempDocxButton); // Felsökningslogg
+    // console.log("DOMContentLoaded: saveTempDocxButton element found:", saveTempDocxButton); // Felsökningslogg
 
     // --- LOGIK FÖR ONLINE/OFFLINE STATUS ---
     // Antar att saveWordSubmitButton är ID för knappen i exportForm
@@ -214,8 +217,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
     
-    window.toggleDark = function() { document.body.classList.toggle('dark-mode'); };
+    // window.toggleDark = function() { document.body.classList.toggle('dark-mode'); };
 
+    const toggleButton = document.getElementById('dark-mode-toggle'); 
+    
+    if (toggleButton) {
+        toggleButton.addEventListener('click', function() {
+            window.toggleDark();
+        });
+    }
+    
     historyToggleButton.addEventListener('click', () => {
         resultDiv.classList.toggle('history-hidden');
         if (resultDiv.classList.contains('history-hidden')) {

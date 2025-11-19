@@ -228,3 +228,36 @@ body.dark-mode #offline-status-message {
     background-color: #6a4a00;
     color: #eee;
 }
+
+/* Stil för hemknappen */
+#homeButton {
+    position: fixed; /* Fäster elementet vid webbläsarfönstret */
+    bottom: 20px;    /* 20px från botten av fönstret */
+    left: 20px;      /* 20px från vänster sida av fönstret */
+    z-index: 1000;   /* Ser till att den ligger ovanpå nästan allt annat */
+    
+    /* Grundläggande styling för att den ska se ut som en knapp */
+    padding: 10px 15px;
+    background-color: #f0c040; /* Använder accentfärgen */
+    color: #333;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+#homeButton:hover {
+    background-color: #e0b030;
+    transform: scale(1.05);
+}
+
+/* Lägg till en mörkt läge-variant för knappen */
+body.dark-mode #homeButton {
+    background-color: #e0a000; /* En mörkare gul/orange */
+    color: #1e1e1e;
+    box-shadow: 0 2px 8px rgba(255,255,255,0.1);
+}
+body.dark-mode #homeButton:hover {
+    background-color: #d09000;
+}

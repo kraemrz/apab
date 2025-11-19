@@ -35,7 +35,7 @@
     <!-- Knapparna är nu samlade -->
     <button type="button" id="saveTempDocxButton">💾 Spara tillfälligt</button>
     <button id="history-toggle-button">📜 Visa historik</button>
-    <button onclick="toggleDark()">🌙 Mörkt läge</button>
+    <button id="dark-mode-toggle">🌙 Mörkt läge</button>
   </div>
 </div>
 
@@ -48,6 +48,9 @@
     ⚠ För bästa upplevelse och full funktionalitet (inklusive autosparning) rekommenderas Google Chrome eller Microsoft Edge.
   </div>
 </div>
+
+<a href="{{ url_for('index') }}" id="homeButton" class="btn_home">🏠 Tillbaka till huvudmenyn</a>
+
 
 <!-- ... din befintliga script.js laddning ... -->
 <script>

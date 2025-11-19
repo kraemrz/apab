@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Service Report</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="/static/js/html2pdf.bundle.min.js"></script>
     <style>
       /* Base and Page Layout */
       body { font-family: Arial, sans-serif; }
@@ -53,14 +53,14 @@
       }
 
       /* Top Grid */
-      .top-grid { display: flex; gap: 20px; margin-bottom: 15px; }
-      .left-box { width: calc(40% - 10px); border: 1px solid #000; padding: 10px; }
-      .right-box { width: calc(60% - 10px); border: 1px solid #000; padding: 10px; }
+      .top-grid { display: flex; gap: 20px; margin-bottom: 10px; }
+      .left-box { width: calc(35% - 10px); border: 1px solid #000; padding: 10px; }
+      .right-box { width: calc(65% - 10px); border: 1px solid #000; padding: 10px; }
       .left-box div { margin-bottom: 6px; }
-      .left-box input[type=text] { margin-left: 4px; width: 140px; }
-      .right-box .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 14px;}
+      .left-box input[type="text"] { margin-left: 4px; width: 140px; border: none; border-bottom: 2px solid black; padding: 2px 0; outline: none; }
+      .right-box .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 14px; }
       .right-box .row:last-child { margin-bottom: 0; }
-      .right-box .row span { flex-shrink: 0; margin-right: 10px; width: 140px; }
+      .right-box .row span { flex-shrink: 0; margin-right: 10px; width: 141px; }
       .right-box .row input { width: 100%; }
 
       /* Questions Section */
@@ -71,10 +71,15 @@
       
       /* Text Areas */
       .description-section { margin-top: 15px; }
+      .description-section h3 {
+          font-weight: bold; /* Gör rubriken fet */
+          margin-bottom: 5px; /* Lägger till ett litet mellanrum under rubriken */
+          /* Du kan även justera marginalen uppåt om det behövs */
+      }
       .big-text { width: 100%; height: 180px; resize: none; box-sizing: border-box; }
 
       /* Spare Parts Section */
-      .spareparts-section { margin-top: 15px; }
+      .spareparts-section { margin-top: 15px; font-weight: bold; }
       .spareparts-grid { margin-top: 10px; }
       .parts-table { border-collapse: collapse; width: 100%; }
       .parts-table th, .parts-table td { border: 1px solid #000; padding: 6px; text-align: left; }
@@ -87,22 +92,60 @@
 
       /* PDF Generation Helpers */
       .page-break-before { page-break-before: always; }
+
+      /* Stil för hemknappen */
+      #homeButton {
+          position: fixed; /* Fäster elementet vid webbläsarfönstret */
+          bottom: 20px;    /* 20px från botten av fönstret */
+          left: 20px;      /* 20px från vänster sida av fönstret */
+          z-index: 1000;   /* Ser till att den ligger ovanpå nästan allt annat */
+          
+          /* Grundläggande styling för att den ska se ut som en knapp */
+          padding: 10px 15px;
+          background-color: #f0c040; /* Använder accentfärgen */
+          color: #333;
+          text-decoration: none;
+          border-radius: 8px;
+          font-weight: bold;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+          transition: background-color 0.2s, transform 0.2s;
+      }
+
+      #homeButton:hover {
+          background-color: #e0b030;
+          transform: scale(1.05);
+      }
+
+      /* Lägg till en mörkt läge-variant för knappen */
+      body.dark-mode #homeButton {
+          background-color: #e0a000; /* En mörkare gul/orange */
+          color: #1e1e1e;
+          box-shadow: 0 2px 8px rgba(255,255,255,0.1);
+      }
+      body.dark-mode #homeButton:hover {
+          background-color: #d09000;
+      }
     </style>
 
-<script type="importmap">
-{
-  "imports": {
-    "vite": "https://aistudiocdn.com/vite@^7.2.2",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
-  }
-}
-</script>
+    
+
+   <script type="importmap">
+    {
+      "imports": {
+        "vite": "https://aistudiocdn.com/vite@^7.2.2",
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+        "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+        "path": "https://aistudiocdn.com/path@^0.12.7"
+      }
+    }
+    </script>
+
   <script type="module" crossorigin src="/static/js/main-D3A_00dh.js"></script>
 </head>
   <body class="bg-gray-100">
     <div id="root"></div>
+    <a href="{{ url_for('index') }}" id="homeButton" class="btn_home">🏠 Tillbaka till huvudmenyn</a>
   </body>
 </html>

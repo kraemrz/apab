@@ -85,11 +85,8 @@
       <li><a href="{{ url_for('backlog_page') }}">✅ Backlogg</a></li>
       <li><a href="{{ url_for('service_report') }}">🛠️ Servicerapport</a></li>
     </ul>
-    <!-- Lägg till mörkt läge-knappen om du vill ha den här också -->
-    <button onclick="toggleDark()" style="margin-top: 1rem;">🌙 Mörkt läge</button>
-  </div>
-
-  <!-- Din script.js kan innehålla toggleDark funktionen -->
-  <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <button id="dark-mode-toggle" onclick="toggleDark()">🌙 Mörkt läge</button>
+    </div>
+<script src="{{ url_for('static', filename='script.js') }}"></script> 
 </body>
 </html>
