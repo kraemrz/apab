@@ -1,175 +1,271 @@
-/* === Base settings === */
+/* ============================================================
+   GLOBALT TEMA & VARIABLER
+   ============================================================ */
+
+:root {
+    --bg-light: #e6d7d7;
+    --bg-dark: #1e1e1e;
+    --accent: #f0c040;
+    --accent-hover: #e0b030;
+    --text-dark: #222;
+    --text-light: #eee;
+}
+
+/* ============================================================
+   BASINSTÄLLNINGAR (GÄLLER ALLA SIDOR)
+   ============================================================ */
+
 body {
-  background-color: #e6d7d7;
-  color: #222;
-  font-family: 'Segoe UI', sans-serif;
-  margin: 0;
-  padding: 0;
-  transition: background-color 0.3s, color 0.3s;
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-light);
+    color: var(--text-dark);
+    font-family: 'Segoe UI', sans-serif;
+    transition: background-color 0.3s, color 0.3s;
 }
 
 body.dark-mode {
-  background-color: #1e1e1e;
-  color: #eee;
+    background-color: var(--bg-dark);
+    color: var(--text-light);
 }
 
-/* === Top Controls === */
+/* Gemensam stil för “dokumentytor” (hybrid dark mode):
+   - Alltid vit bakgrund
+   - Text mörk även i dark mode
+*/
+.menu-container,
+.container,
+.page {
+    background-color: #ffffff;
+    color: var(--text-dark);
+}
+
+/* Se till att dessa behåller vit bakgrund även i mörkt läge */
+body.dark-mode .menu-container,
+body.dark-mode .container,
+body.dark-mode .page {
+    background-color: #ffffff;
+    color: var(--text-dark);
+}
+
+/* ------------------------------------------------------------
+   Knappar & inputs
+   ------------------------------------------------------------ */
+
+button,
+input[type="submit"] {
+    padding: 8px 16px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: #f0f0f0;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s, transform 0.1s, box-shadow 0.1s;
+}
+
+button:hover,
+input[type="submit"]:hover {
+    background-color: #e0e0e0;
+}
+
+body.dark-mode button,
+body.dark-mode input[type="submit"] {
+    background-color: #444;
+    border-color: #666;
+    color: var(--text-light);
+}
+
+body.dark-mode button:hover,
+body.dark-mode input[type="submit"]:hover {
+    background-color: #555;
+}
+
+button:disabled,
+input[type="submit"]:disabled {
+    cursor: not-allowed !important;
+    opacity: 0.6;
+    background-color: #cccccc !important;
+    border-color: #999999 !important;
+    color: #666666 !important;
+}
+
+body.dark-mode button:disabled,
+body.dark-mode input[type="submit"]:disabled {
+    background-color: #3a3a3a !important;
+    border-color: #555555 !important;
+    color: #999999 !important;
+}
+
+/* Gemensam stil för inputs & textarea */
+input[type="text"],
+input[type="date"],
+textarea {
+    border: 1px solid #d1d5db;
+    font-size: 14px;
+    padding: 4px;
+    font-family: inherit;
+}
+
+textarea {
+    width: 100%;
+    min-height: 125px;
+    resize: none;
+}
+
+/* Mindre checkboxar/radio */
+input[type="checkbox"],
+input[type="radio"] {
+    transform: scale(0.9);
+}
+
+/* ============================================================
+   TOP-KONTROLLER (INSPECTION-SIDAN)
+   ============================================================ */
+
 .controls {
-  position: sticky;
-  top: 0;
-  z-index: 1001;
-  background: #c9b4b4;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.8rem 1.5rem;
-  border-bottom: 1px solid #ddd;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    position: sticky;
+    top: 0;
+    z-index: 1001;
+    background: #c9b4b4;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem 1.5rem;
+    border-bottom: 1px solid #ddd;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 body.dark-mode .controls {
-  background: #2a2a2a;
-  border-color: #444;
+    background: #2a2a2a;
+    border-color: #444;
 }
 
 .controls .left,
 .controls .right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
-button, input[type="submit"] {
-  padding: 8px 16px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background-color: #f0f0f0;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
+/* ============================================================
+   DROP-ZONE (INSPECTION)
+   ============================================================ */
 
-button:hover {
-  background-color: #e0e0e0;
-}
-
-body.dark-mode button, body.dark-mode input[type="submit"] {
-  background-color: #444;
-  border-color: #666;
-  color: #eee;
-}
-
-body.dark-mode button:hover {
-  background-color: #555;
-}
-
-/* === Drop Zone === */
 #drop-zone {
-  border: 2px dashed #ccc;
-  background: #f9f9f9;
-  color: #555;
-  padding: 1rem;
-  text-align: center;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.3s, border-color 0.3s;
+    border: 2px dashed #ccc;
+    background: #f9f9f9;
+    color: #555;
+    padding: 1rem;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s, border-color 0.3s;
 }
 
-#drop-zone.dragover, #drop-zone:hover {
-  background: #e9f5ff;
-  border-color: #007bff;
+#drop-zone.dragover,
+#drop-zone:hover {
+    background: #e9f5ff;
+    border-color: #007bff;
 }
 
 body.dark-mode #drop-zone {
-  background: #333;
-  border-color: #666;
-  color: #bbb;
+    background: #333;
+    border-color: #666;
+    color: #bbb;
 }
 
-body.dark-mode #drop-zone.dragover, body.dark-mode #drop-zone:hover {
-  background: #3a4a5a;
-  border-color: #5a9fff;
+body.dark-mode #drop-zone.dragover,
+body.dark-mode #drop-zone:hover {
+    background: #3a4a5a;
+    border-color: #5a9fff;
 }
 
+/* ============================================================
+   CONTAINER (INSPECTION HUVUDBOX)
+   ============================================================ */
 
-/* === Container === */
 .container {
-  max-width: 1500px;
-  margin: 2rem auto;
-  padding: 2rem;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    max-width: 1500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
 }
 
-body.dark-mode .container {
-  background: #2a2a2a;
-}
+/* I hybrid-läge låter vi container alltid vara vit (se global regel) */
 
-/* === Tables === */
+/* ============================================================
+   TABELLER (INSPECTION)
+   ============================================================ */
+
 .table-grid {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 1rem;
-  table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+    table-layout: fixed;
 }
 
-.table-grid th, .table-grid td {
-  border: 1px solid #ddd;
-  padding: 10px 12px;
-  text-align: left;
-  word-wrap: break-word;
+.table-grid th,
+.table-grid td {
+    border: 1px solid #ddd;
+    padding: 10px 12px;
+    text-align: left;
+    word-wrap: break-word;
 }
 
 .table-grid th {
-  background: #f0c040;
-  color: #333;
-  font-weight: 600;
+    background: var(--accent);
+    color: #333;
+    font-weight: 600;
 }
 
 .table-grid colgroup .col-status { width: 20%; }
-.table-grid colgroup .col-action { width:40%; }
-.table-grid colgroup .col-comment { width:20%; }
+.table-grid colgroup .col-action { width: 40%; }
+.table-grid colgroup .col-comment { width: 20%; }
 .table-grid colgroup .col-history { width: 20%; }
 
 .history-hidden .table-grid th:nth-child(4),
 .history-hidden .table-grid td:nth-child(4) {
-  display: none;
+    display: none;
 }
 
-.history-hidden .table-grid colgroup .col-action {width: 56.5%; }
-.history-hidden .table-grid colgroup .col-comment {width: 56.5%; }
+.history-hidden .table-grid colgroup .col-action { width: 56.5%; }
+.history-hidden .table-grid colgroup .col-comment { width: 56.5%; }
 
-
-body.dark-mode .table-grid th, body.dark-mode .table-grid td {
-  border-color: #555;
+body.dark-mode .table-grid th,
+body.dark-mode .table-grid td {
+    border-color: #555;
 }
 
 td[contenteditable="true"] {
-  background-color: #f0f8ff;
+    background-color: #f0f8ff;
 }
 
 body.dark-mode td[contenteditable="true"] {
-  background-color: #334;
+    background-color: #334;
 }
 
-/* === STYLING FOR HISTORY SECTION === */
+/* ============================================================
+   HISTORIKSEKTION (INSPECTION)
+   ============================================================ */
+
 #history-container {
-  position: sticky;
-  top: 65px;
-  z-index: 1000;
-  background-color: #fdfcee;
-  border-bottom: 1px solid #f0c040;
-  display: none; /* Dold från start, styrs av JS */
+    position: sticky;
+    top: 65px;
+    z-index: 1000;
+    background-color: #fdfcee;
+    border-bottom: 1px solid var(--accent);
+    display: none;
 }
 
 body.dark-mode #history-container {
-  background-color: #2c2a23;
-  border-color: #5c4d1d;
+    background-color: #2c2a23;
+    border-color: #5c4d1d;
 }
 
-#history-table td, #history-table th {
-  vertical-align: top;
+#history-table td,
+#history-table th {
+    vertical-align: top;
 }
 
 #history-table td:nth-child(1) { width: 15%; }
@@ -177,44 +273,33 @@ body.dark-mode #history-container {
 #history-table td:nth-child(3) { width: 65%; }
 
 .no-comments {
-  color: #888;
-  font-style: italic;
+    color: #888;
+    font-style: italic;
 }
 
 .comment-item {
-  margin-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
 }
 
 .comment-item:last-child {
-  margin-bottom: 0;
+    margin-bottom: 0;
 }
 
 .comment-item strong {
-  display: block;
-  color: #333;
+    display: block;
+    color: #333;
 }
 
 body.dark-mode .comment-item strong {
-  color: #eee;
+    color: var(--text-light);
 }
 
-button:disabled {
-  cursor: not-allowed !important;
-  opacity: 0.6;
-  background-color: #cccccc !important;
-  border-color: #999999 !important;
-  color: #666666 !important;
-}
+/* ============================================================
+   OFFLINE-MEDDELANDE
+   ============================================================ */
 
-body.dark-mode button:disabled {
-  background-color: #3a3a3a !important;
-  border-color: #555555 !important;
-  color: #999999 !important;
-}
-
-/* Stil för offline-meddelandet - du kan förfina detta */
 #offline-status-message {
-    background-color: #ffc107; /* Varningsfärg */
+    background-color: #ffc107;
     color: #343a40;
     padding: 8px 15px;
     border-radius: 5px;
@@ -222,23 +307,25 @@ body.dark-mode button:disabled {
     text-align: center;
     font-weight: bold;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    font-size: 0.9em; /* Lite mindre text */
-}
-body.dark-mode #offline-status-message {
-    background-color: #6a4a00;
-    color: #eee;
+    font-size: 0.9em;
 }
 
-/* Stil för hemknappen */
+body.dark-mode #offline-status-message {
+    background-color: #6a4a00;
+    color: var(--text-light);
+}
+
+/* ============================================================
+   HEMKNAPP (ALLA SIDOR)
+   ============================================================ */
+
 #homeButton {
-    position: fixed; /* Fäster elementet vid webbläsarfönstret */
-    bottom: 20px;    /* 20px från botten av fönstret */
-    left: 20px;      /* 20px från vänster sida av fönstret */
-    z-index: 1000;   /* Ser till att den ligger ovanpå nästan allt annat */
-    
-    /* Grundläggande styling för att den ska se ut som en knapp */
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
     padding: 10px 15px;
-    background-color: #f0c040; /* Använder accentfärgen */
+    background-color: var(--accent);
     color: #333;
     text-decoration: none;
     border-radius: 8px;
@@ -248,16 +335,334 @@ body.dark-mode #offline-status-message {
 }
 
 #homeButton:hover {
-    background-color: #e0b030;
+    background-color: var(--accent-hover);
     transform: scale(1.05);
 }
 
-/* Lägg till en mörkt läge-variant för knappen */
 body.dark-mode #homeButton {
-    background-color: #e0a000; /* En mörkare gul/orange */
-    color: #1e1e1e;
+    background-color: #e0a000;
+    color: var(--bg-dark);
     box-shadow: 0 2px 8px rgba(255,255,255,0.1);
 }
+
 body.dark-mode #homeButton:hover {
     background-color: #d09000;
+}
+
+/* ============================================================
+   INDEX-SIDAN (HUVUDMENY)
+   ============================================================ */
+
+/* Centrera menyn snyggt utan att låsa hela body i flex (så andra sidor funkar) */
+.menu-container {
+    padding: 3rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+    text-align: center;
+    max-width: 500px;
+    width: 90%;
+    margin: 10vh auto 0;
+}
+
+.menu-container h1 {
+    color: var(--accent);
+    margin-bottom: 2rem;
+}
+
+.menu-container ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem 0;
+}
+
+.menu-container li {
+    margin-bottom: 1rem;
+}
+
+.menu-container a {
+    display: block;
+    padding: 1rem;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #333;
+    font-weight: 500;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+.menu-container a:hover {
+    background-color: #e0e0e0;
+    transform: translateY(-2px);
+}
+
+/* Dark mode för menyn följer hybrid-logiken:
+   - Boxen vit
+   - Text mörk
+   - Länkar lite mörkare grå */
+body.dark-mode .menu-container a {
+    background-color: #e9e9e9;
+    border-color: #bbb;
+    color: #111;
+}
+
+body.dark-mode .menu-container a:hover {
+    background-color: #dcdcdc;
+}
+
+/* ============================================================
+   SERVICE REPORT
+   ============================================================ */
+
+/* "Dokumentet" (A4) */
+.page {
+    width: 794px; /* ungefär A4-bredd @ 96dpi */
+    margin: 2rem auto;
+    padding: 24px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.15);
+}
+
+/* Header med logo + titel */
+.header-logo-title {
+    border: 1px solid #000;
+}
+
+.header-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    align-items: center;
+    border-bottom: 1px solid #000;
+}
+
+.logo-cell {
+    padding: 16px;
+    border-right: 1px solid #000;
+    text-align: center;
+}
+
+.logo-cell img {
+    max-width: 140px;
+    height: auto;
+}
+
+.title-cell {
+    text-align: center;
+    padding: 16px;
+}
+
+.title-cell .qms {
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.title-cell .title {
+    font-size: 22px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+/* Huvudformulär */
+.main-form {
+    border: 1px solid #000;
+    border-top: none;
+    padding: 16px;
+}
+
+.top-section {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.fieldset {
+    border: 1px solid #000;
+    padding: 8px 10px 10px;
+    font-size: 14px;
+}
+
+.fieldset legend {
+    font-weight: bold;
+    padding: 0 4px;
+}
+
+.checkbox-group label,
+.radio-group label {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.field-row {
+    display: grid;
+    grid-template-columns: 160px auto;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+
+.field-row label {
+    text-align: right;
+    padding-right: 4px;
+}
+
+.field-row input {
+    width: 95%;
+    padding: 2px 4px;
+    font-size: 14px;
+}
+
+/* Frågor */
+.questions {
+    border: 1px solid #000;
+    border-top: none;
+    font-size: 14px;
+}
+
+.question-row {
+    display: grid;
+    grid-template-columns: 1fr 120px;
+    border-top: 1px solid #000;
+}
+
+.question-text {
+    padding: 6px 8px;
+}
+
+.question-answers {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-left: 1px solid #000;
+    padding: 4px;
+}
+
+/* Sektionstitlar */
+.section-title {
+    font-weight: bold;
+    font-size: 14px;
+    margin-top: 12px;
+    margin-bottom: 4px;
+}
+
+/* Spare parts */
+.spare-parts {
+    margin-top: 12px;
+    font-size: 14px;
+}
+
+.spare-parts-header {
+    margin-bottom: 4px;
+}
+
+.spare-parts-header label {
+    font-size: 14px;
+}
+
+.spare-parts table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.spare-parts th,
+.spare-parts td {
+    border: 1px solid #000;
+    padding: 4px;
+    text-align: left;
+}
+
+.spare-parts th {
+    background: #fbbf24; /* behåller din orange */
+}
+
+/* Footer-tabell */
+.footer-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    font-size: 8px;
+}
+
+.footer-table th,
+.footer-table td {
+    border: 1px solid #000;
+    padding: 4px;
+}
+
+/* Download-knappen under sidan */
+.download-container {
+    text-align: center;
+    margin-top: 20px;
+}
+
+#downloadPdf {
+    background: #2563eb;
+    color: #ffffff;
+    border: none;
+    padding: 10px 36px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.4);
+    transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+}
+
+#downloadPdf:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.5);
+}
+
+#downloadPdf:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 6px rgba(37, 99, 235, 0.4);
+}
+
+/* Språkknapp */
+.lang-switch {
+    width: 100%;
+    text-align: right;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.lang-switch button {
+    padding: 6px 14px;
+    font-size: 13px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: 0.2s;
+}
+
+.lang-switch button:hover {
+    background: #f0f0f0;
+}
+
+.lang-switch img {
+    height: 16px;
+}
+
+/* Dark mode för UI runt service report */
+body.dark-mode .download-container #downloadPdf {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.6);
+}
+
+body.dark-mode .lang-switch button {
+    background: #f5f5f5;
+    border-color: #bbb;
+    color: #111;
+}
+
+body.dark-mode .lang-switch button:hover {
+    background: #e6e6e6;
 }

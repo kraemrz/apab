@@ -49,9 +49,31 @@ class InspectionComment(Model):
     class Meta:
         database = db
 
+class ServiceReport(Model):
+    machine_number = CharField()
+    created_date = DateTimeField(default=datetime.now)
+    filename = CharField()
+    pdf_data = BlobField()  # <-- HÄR SPARAS SJÄLVA PDF-FILEN (BYTEA)
+
+    class Meta:
+        database = db
+
 def init_db():
     with db:
-        db.create_tables([Inspection, InspectionComment])
+        db.create_tables([Inspection, InspectionComment, ServiceReport])
+
+def save_service_report(machine_number, filename, pdf_bytes):
+    # Säkerställ att tabellen finns
+    init_db()
+
+    # Spara med Peewee istället för SQL
+    report = ServiceReport.create(
+        machine_number=machine_number,
+        filename=filename,
+        pdf_data=pdf_bytes
+    )
+
+    return report.id
 
 def add_inspection(customer, machine, inspection_date, inspector=None, notes=None, comments=None):
     with db.atomic() as transaction:

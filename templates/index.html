@@ -1,81 +1,14 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <meta name="theme-color" content="#f0c040">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <meta charset="UTF-8" />
   <title>APAB - Huvudmeny</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <style>
-    /* Lite enkel CSS för menyn */
-    body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      background-color: #e6d7d7; /* Matchar din befintliga bakgrund */
-      color: #222;
-      font-family: 'Segoe UI', sans-serif;
-    }
-    .menu-container {
-      background: white;
-      padding: 3rem;
-      border-radius: 12px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.05);
-      text-align: center;
-      max-width: 500px;
-      width: 90%;
-    }
-    .menu-container h1 {
-      color: #f0c040;
-      margin-bottom: 2rem;
-    }
-    .menu-container ul {
-      list-style: none;
-      padding: 0;
-    }
-    .menu-container li {
-      margin-bottom: 1rem;
-    }
-    .menu-container a {
-      display: block;
-      padding: 1rem;
-      background-color: #f0f0f0;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      text-decoration: none;
-      color: #333;
-      font-weight: 500;
-      transition: background-color 0.2s, transform 0.2s;
-    }
-    .menu-container a:hover {
-      background-color: #e0e0e0;
-      transform: translateY(-2px);
-    }
-
-    /* Dark mode support */
-    body.dark-mode {
-        background-color: #1e1e1e;
-        color: #eee;
-    }
-    body.dark-mode .menu-container {
-        background: #2a2a2a;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-    }
-    body.dark-mode .menu-container h1 {
-        color: #f0c040; /* Behåll samma accentfärg */
-    }
-    body.dark-mode .menu-container a {
-        background-color: #444;
-        border-color: #666;
-        color: #eee;
-    }
-    body.dark-mode .menu-container a:hover {
-        background-color: #555;
-        transform: translateY(-2px);
-    }
-  </style>
 </head>
+
 <body>
   <div class="menu-container">
     <h1>Välkommen till APAB Inspektion</h1>

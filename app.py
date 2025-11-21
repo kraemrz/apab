@@ -15,7 +15,7 @@ from docx.oxml.ns import qn
 from bs4 import BeautifulSoup
 from io import BytesIO
 from datetime import datetime
-from database import add_inspection, get_history_for_machine
+from database import add_inspection, get_history_for_machine, save_service_report
 import json
 
 SAVE_FOLDER = 'Sparade_Rapporter'
@@ -160,6 +160,30 @@ def upload_file():
 def get_history(machine_id):
     history = get_history_for_machine(machine_id)
     return jsonify(history)
+
+@app.route('/save_pdf_report', methods=['POST'])
+def save_pdf_report():
+    try:
+        machine_number = request.form.get("machine_number")
+        filename = request.form.get("filename")
+        pdf_file = request.files.get("pdf")
+
+        if not (machine_number and pdf_file):
+            return jsonify({"error": "Missing PDF or machine number"}), 400
+
+        pdf_bytes = pdf_file.read()
+
+        save_service_report(
+            machine_number=machine_number,
+            filename=filename or "report.pdf",
+            pdf_bytes=pdf_bytes
+        )
+
+        return jsonify({"message": "PDF saved successfully"}), 200
+
+    except Exception as e:
+        print("Error saving PDF:", e)
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/export-word", methods=["POST"])
