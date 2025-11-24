@@ -608,17 +608,35 @@ body.dark-mode .section textarea{
     border: 1px solid #000;
     padding: 4px;
     text-align: left;
-    input:focus {outline:none!important;}
-    input { border: 0 }
-    
 }
+
+.spare-parts input {
+    border: 0;
+}
+
+.sp-qty {
+    width: 95%;
+}
+
+.sp-desc {
+    width: 95%;
+}
+
+.sp-item {
+    width: 95%;
+}
+
+.spare-parts input:focus {  
+    outline: none !important;
+}
+    
 
 .spare-parts th {
     background: #fbbf24;
 }
 
 body.dark-mode .spare-parts input{
-    background-color: var(--bg-surface-dark);
+    background-color: var(--bg-body-dark);
     color: var(--text-main-dark);
 }
 
