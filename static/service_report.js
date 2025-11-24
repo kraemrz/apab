@@ -530,6 +530,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       // 1) spara i databasen
       try {
         await uploadPdfToServer(blob, machineNo, date, filename);
+        console.log("PDF uploaded successfully.");
       } catch (e) {
         console.error("Upload error:", e);
       }

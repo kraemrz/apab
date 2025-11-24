@@ -284,8 +284,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 resultDiv.innerHTML = jsonData.html || '';
                 resultDiv.dataset.lang = jsonData.lang || 'sv';
 
-                resultDiv.classList.add('history-hidden'); 
-                historyToggleButton.textContent = '📜 Visa historik'; 
+                //resultDiv.classList.add('history-hidden'); 
+                //historyToggleButton.textContent = '📜 Visa historik'; 
 
                 currentLang = jsonData.lang || 'sv';
                 currentCustomer = jsonData.customer || 'Okänd Kund';
@@ -518,6 +518,19 @@ document.addEventListener("DOMContentLoaded", function () {
         resultDiv.innerHTML = html;
         resultDiv.classList.add('history-hidden');
         attachInteractionHandlers();
+        // --- FIX: History toggle funkar även efter DOCX-uppladdning ---
+        historyToggleButton.addEventListener("click", () => {
+            const isHidden = resultDiv.classList.contains("history-hidden");
+
+            if (isHidden) {
+                resultDiv.classList.remove("history-hidden");
+                historyToggleButton.textContent = "📜 Dölj historik";
+            } else {
+                resultDiv.classList.add("history-hidden");
+                historyToggleButton.textContent = "📜 Visa historik";
+            }
+        });
+
     }
 
     // --- INTERACTIVITY HELPERS ---

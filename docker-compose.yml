@@ -40,7 +40,7 @@ services:
       # Eller så kan du ha den peka på Supabase här om det är din prod databas
       # DATABASE_URL: "postgres://${DB_PROD_USER}:${DB_PROD_PASSWORD}@db-prod:5432/${DB_PROD_NAME}"
       # ELLER, om produktions-databasen är Supabase:
-      DATABASE_URL: "postgres://${SUPABASE_USER}:${SUPABASE_PASSWORD}@${SUPABASE_HOST}:${SUPABASE_PORT}/${SUPABASE_DB_NAME}"
+      # DATABASE_URL: "postgres://${SUPABASE_USER}:${SUPABASE_PASSWORD}@${SUPABASE_HOST}:${SUPABASE_PORT}/${SUPABASE_DB_NAME}"
       
       # Andra hemligheter för appen
       SECRET_KEY: ${APP_SECRET_KEY} # Läs från Docker Compose's .env

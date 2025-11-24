@@ -8,13 +8,17 @@ from urllib.parse import urlparse
 
 load_dotenv()
 
-DATABASE_URL = os.getenv('DATABASE_URL')
+use_test = os.getenv('USE_TEST_DB', 'false').lower() == 'true'
+if use_test:
+    DATABASE_URL = os.getenv('DATABASE_URL_TEST')
+else:
+    DATABASE_URL = os.getenv('DATABASE_URL')
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL saknas i .env-filen.")
 
 url = urlparse(DATABASE_URL)
-db_name = url.path[1:] # Tar bort det ledande '/'
+db_name = url.path[1:]
 db_user = url.username
 db_password = url.password
 db_host = url.hostname
@@ -23,13 +27,15 @@ db_port = url.port
 if not all([db_name, db_user, db_password, db_host, db_port]):
      raise ValueError("Ofullständig DATABASE_URL i .env-filen.")
 
+use_ssl ="supabase" in db_host or "pooler" in db_host
+
 db = PostgresqlDatabase(
         db_name,
         user=db_user,
         password=db_password,
         host=db_host,
         port=db_port,
-        sslmode='require'
+        sslmode='require' if use_ssl else None
     )
 
 class Inspection(Model):
