@@ -729,3 +729,14 @@ body.dark-mode .lang-switch button {
 body.dark-mode .lang-switch button:hover {
     background: #e6e6e6;
 }
+
+/* Gråa ut spare parts *endast tabellen*, inte rubrik */
+.spare-parts.disabled tbody#sparePartsBody {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+/* Dark mode variant */
+body.dark-mode .spare-parts.disabled tbody#sparePartsBody {
+    opacity: 0.45;
+}

@@ -512,6 +512,21 @@ let logoBase64 = null;
 document.addEventListener("DOMContentLoaded", async () => {
   logoBase64 = await loadImageAsBase64("/static/images/apab_logo_512.png");
   
+  const check = document.getElementById("noSpareParts");
+  const spareBox = document.querySelector(".spare-parts");
+
+  if (!check ||!spareBox) return;
+  function updateSparePartsState() {
+    if (check.checked) {
+      spareBox.classList.add("disabled");
+    } else {
+      spareBox.classList.remove("disabled");
+    }
+  }
+
+  check.addEventListener("change", updateSparePartsState);
+  updateSparePartsState();
+
   setLanguage("sv")
   setupSparePartsAutoRow();
 
