@@ -17,6 +17,7 @@ from io import BytesIO
 from datetime import datetime
 from database import add_inspection, get_history_for_machine, save_service_report
 import json
+from minio_client import minio_upload_pdf, list_reports, get_pdf_url, delete_report
 
 SAVE_FOLDER = 'Sparade_Rapporter'
 os.makedirs(SAVE_FOLDER, exist_ok=True)
@@ -164,7 +165,9 @@ def get_history(machine_id):
 @app.route('/save_pdf_report', methods=['POST'])
 def save_pdf_report():
     try:
+        customer = request.form.get("customer")
         machine_number = request.form.get("machine_number")
+        service_date = request.form.get("serviceDate") or datetime.now().strftime("%Y-%m-%d")
         filename = request.form.get("filename")
         pdf_file = request.files.get("pdf")
 
@@ -173,10 +176,17 @@ def save_pdf_report():
 
         pdf_bytes = pdf_file.read()
 
+        # 1) Spara PDF i MinIO
+        object_path = f"{machine_number}/{filename}"
+        minio_upload_pdf(object_path, pdf_bytes)
+
+        # 2) Spara metadata i Postgres
         save_service_report(
+            customer=customer,
             machine_number=machine_number,
-            filename=filename or "report.pdf",
-            pdf_bytes=pdf_bytes
+            service_date=service_date,
+            filename=filename,
+            pdf_path=object_path  # <-- spara bara en referens till pdf
         )
 
         return jsonify({"message": "PDF saved successfully"}), 200
@@ -185,6 +195,23 @@ def save_pdf_report():
         print("Error saving PDF:", e)
         return jsonify({"error": str(e)}), 500
 
+
+@app.route("/reports/<machine>")
+def list_machine_reports(machine):
+    reports = list_reports(machine)
+    return jsonify(reports)
+
+@app.route("/report_url")
+def get_report_url():
+    path = request.args.get("path")
+    url = get_pdf_url(path)
+    return jsonify({"url": url})
+
+@app.route("/delete_report", methods=["POST"])
+def delete_report_api():
+    path = request.form.get("path")
+    delete_report(path)
+    return jsonify({"status": "deleted"})
 
 @app.route("/export-word", methods=["POST"])
 def export_to_word():

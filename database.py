@@ -8,14 +8,31 @@ from urllib.parse import urlparse
 
 load_dotenv()
 
-use_test = os.getenv('USE_TEST_DB', 'false').lower() == 'true'
-if use_test:
-    DATABASE_URL = os.getenv('DATABASE_URL_TEST')
+IS_TEST = os.getenv("TEST_ENV", "0") == "1"
+
+# -------------------------------------------------------
+# DATABASE CONFIG
+# -------------------------------------------------------
+if IS_TEST:
+    DATABASE_URL = os.getenv("DATABASE_URL_TEST")
 else:
-    DATABASE_URL = os.getenv('DATABASE_URL')
+    DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL saknas i .env-filen.")
+
+# -------------------------------------------------------
+# MINIO CONFIG
+# -------------------------------------------------------
+if IS_TEST:
+    minio_endpoint = os.getenv("MINIO_TEST_ENDPOINT")
+    access = os.getenv("MINIO_TEST_ACCESS")
+    secret = os.getenv("MINIO_TEST_SECRET")
+else:
+    minio_endpoint = os.getenv("MINIO_PROD_ENDPOINT")
+    access = os.getenv("MINIO_PROD_ACCESS")
+    secret = os.getenv("MINIO_PROD_SECRET")
+
 
 url = urlparse(DATABASE_URL)
 db_name = url.path[1:]
@@ -56,6 +73,7 @@ class InspectionComment(Model):
         database = db
 
 class ServiceReport(Model):
+    customer = CharField()
     machine_number = CharField()
     created_date = DateTimeField(default=datetime.now)
     filename = CharField()
@@ -68,17 +86,28 @@ def init_db():
     with db:
         db.create_tables([Inspection, InspectionComment, ServiceReport])
 
-def save_service_report(machine_number, filename, pdf_bytes):
-    # Säkerställ att tabellen finns
+class ServiceReport(Model):
+    customer = CharField(null=True)
+    machine_number = CharField()
+    service_date = DateField(null=True)
+    filename = CharField()
+    pdf_path = CharField()  # <-- istället för pdf_data BLOB
+    created_date = DateTimeField(default=datetime.now)
+
+    class Meta:
+        database = db
+
+
+def save_service_report(customer, machine_number, service_date, filename, pdf_path):
     init_db()
 
-    # Spara med Peewee istället för SQL
     report = ServiceReport.create(
+        customer=customer,
         machine_number=machine_number,
+        service_date=service_date,
         filename=filename,
-        pdf_data=pdf_bytes
+        pdf_path=pdf_path
     )
-
     return report.id
 
 def add_inspection(customer, machine, inspection_date, inspector=None, notes=None, comments=None):

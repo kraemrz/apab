@@ -1,3 +1,7 @@
+// ============================================================
+// SPRÅK / I18N
+// ============================================================
+
 const LANG = {
   en: {
     system: "Quality management system",
@@ -95,30 +99,30 @@ const LANG = {
     download_btn: "Ladda ner PDF",
   },
 };
-  // ---------------------------------------------
 
-  // Initiera med svenska som standard
-  window.currentLang = "sv";
-  
-  function setLanguage(lang) {
-    window.currentLang = lang;
-    const dict = LANG[lang];
+// init standard
+window.currentLang = "sv";
 
-    // Uppdatera alla HTML-element med data-i18n
-    document.querySelectorAll("[data-i18n]").forEach((el) => {
-      const key = el.getAttribute("data-i18n");
-      if (dict[key]) {
-        el.textContent = dict[key];
-      }
-    });
+function setLanguage(lang) {
+  window.currentLang = lang;
+  const dict = LANG[lang];
 
-    // Uppdatera titel
-    document.title = dict.report_title;
+  // Alla element med data-i18n
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    if (dict[key]) {
+      el.textContent = dict[key];
+    }
+  });
 
-    // Uppdatera språkknappen
-    const flag = document.getElementById("langFlag");
-    const label = document.getElementById("langLabel");
+  // Titel i fliken
+  document.title = dict.report_title;
 
+  // Språkknapp
+  const flag = document.getElementById("langFlag");
+  const label = document.getElementById("langLabel");
+
+  if (flag && label) {
     if (lang === "sv") {
       flag.src = "/static/images/se.png";
       label.textContent = "Svenska";
@@ -127,15 +131,17 @@ const LANG = {
       label.textContent = "English";
     }
   }
+}
 
-  function toggleLanguage() {
-    const newLang = window.currentLang === "sv" ? "en" : "sv";
-    setLanguage(newLang);
-  }
+function toggleLanguage() {
+  const newLang = window.currentLang === "sv" ? "en" : "sv";
+  setLanguage(newLang);
+}
 
+// ============================================================
+// FORM-DATA
+// ============================================================
 
-
-// Hjälpfunktion: hämta alla formulärdata
 function getFormData() {
   const getCheckedReasonKeys = () =>
     Array.from(document.querySelectorAll('input[name="reason"]'))
@@ -180,23 +186,34 @@ function getFormData() {
   };
 }
 
+// ============================================================
+// HJÄLPFUNKTIONER
+// ============================================================
+
 function loadImageAsBase64(url) {
   return fetch(url)
-    .then(res => res.blob())
-    .then(blob => new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(blob);
-    }));
+    .then((res) => res.blob())
+    .then(
+      (blob) =>
+        new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        })
+    );
 }
 
-// Bygg pdfMake docDefinition
+// ============================================================
+// PDF-BYGGARE (pdfMake)
+// ============================================================
+
 function buildDocDefinition(data) {
   const L = LANG[window.currentLang || "en"];
 
   const yesNo = (answer) => {
-    if (answer === "Yes") return L.yes;
-    if (answer === "No") return L.no;
+    // hantera både engelsk & svensk radio-value
+    if (answer === "Yes" || answer === "Ja") return L.yes;
+    if (answer === "No" || answer === "Nej") return L.no;
     return "-";
   };
 
@@ -236,9 +253,7 @@ function buildDocDefinition(data) {
     pageMargins: [35, 40, 35, 40],
 
     content: [
-      // ---------------------------------------------
-      // HEADER (logo + title)
-      // ---------------------------------------------
+      // HEADER
       {
         table: {
           widths: ["25%", "75%"],
@@ -272,9 +287,7 @@ function buildDocDefinition(data) {
         margin: [0, 0, 0, 12],
       },
 
-      // ---------------------------------------------
-      // TOP SECTION (Left column + right column)
-      // ---------------------------------------------
+      // TOP-DEL
       {
         columns: [
           {
@@ -314,37 +327,15 @@ function buildDocDefinition(data) {
         margin: [0, 0, 0, 15],
       },
 
-      // ---------------------------------------------
-      // YES/NO QUESTIONS (4 rows, 2 columns)
-      // ---------------------------------------------
+      // JA/NEJ-FRÅGOR
       {
         table: {
           widths: ["*", 60],
           body: [
-            [
-              {
-                text: L.q1,
-              },
-              { text: yesNo(data.q1), alignment: "center" },
-            ],
-            [
-              {
-                text: L.q2,
-              },
-              { text: yesNo(data.q2), alignment: "center" },
-            ],
-            [
-              {
-                text: L.q3,
-              },
-              { text: yesNo(data.q3), alignment: "center" },
-            ],
-            [
-              {
-                text: L.q4
-              },
-              { text: yesNo(data.q4), alignment: "center" },
-            ],
+            [{ text: L.q1 }, { text: yesNo(data.q1), alignment: "center" }],
+            [{ text: L.q2 }, { text: yesNo(data.q2), alignment: "center" }],
+            [{ text: L.q3 }, { text: yesNo(data.q3), alignment: "center" }],
+            [{ text: L.q4 }, { text: yesNo(data.q4), alignment: "center" }],
           ],
         },
         layout: {
@@ -355,9 +346,7 @@ function buildDocDefinition(data) {
         margin: [0, 0, 0, 15],
       },
 
-      // ---------------------------------------------
-      // DESCRIPTION
-      // ---------------------------------------------
+      // BESKRIVNING
       { text: L.desc_title, style: "subtitle" },
       {
         table: {
@@ -373,12 +362,10 @@ function buildDocDefinition(data) {
         },
         layout: "box",
         margin: [0, 5, 0, 15],
-        pageBreak: "after"
+        pageBreak: "after",
       },
 
-      // ---------------------------------------------
-      // NOTES
-      // ---------------------------------------------
+      // ANTECKNINGAR
       { text: L.notes_title, style: "subtitle" },
       {
         table: {
@@ -396,40 +383,37 @@ function buildDocDefinition(data) {
         margin: [0, 5, 0, 15],
       },
 
-      // ---------------------------------------------
-      // SPARE PARTS
-      // ---------------------------------------------
+      // RESERVDELAR
       { text: L.spare_title, style: "subtitle", margin: [0, 5, 0, 5] },
       ...sparePartsTable,
     ],
 
-footer: function(currentPage, pageCount) {
-  if (currentPage === 2) {
-    return {
-      margin: [35, 0, 35, 20],
-      table: {
-        widths: ["*", "*", "*", "*"],
-        body: [
-          [
-              { text: `${L.footer_doc} APB0027`, fontSize: 8 },
-              { text: `${L.footer_prepared} Charlotte Tuvesson`, fontSize: 8 },
-              { text: `${L.footer_reviewed} Fredrik Sjöstrand`, fontSize: 8 },
-              { text: `${L.footer_revision} 5`, fontSize: 8 },
+    footer: function (currentPage, pageCount) {
+      if (currentPage === 2) {
+        return {
+          margin: [35, 0, 35, 20],
+          table: {
+            widths: ["*", "*", "*", "*"],
+            body: [
+              [
+                { text: `${L.footer_doc} APB0027`, fontSize: 8 },
+                { text: `${L.footer_prepared} Charlotte Tuvesson`, fontSize: 8 },
+                { text: `${L.footer_reviewed} Fredrik Sjöstrand`, fontSize: 8 },
+                { text: `${L.footer_revision} 5`, fontSize: 8 },
+              ],
+              [
+                { text: `${L.footer_process} Serviceprocessen`, fontSize: 8 },
+                { text: `${L.footer_approved} Susanne Ottosson`, fontSize: 8 },
+                { text: `${L.footer_validfrom} 2023-04-11`, fontSize: 8 },
+                { text: "", fontSize: 8 },
+              ],
             ],
-            [
-              { text: `${L.footer_process} Serviceprocessen`, fontSize: 8 },
-              { text: `${L.footer_approved} Susanne Ottosson`, fontSize: 8 },
-              { text: `${L.footer_validfrom} 2023-04-11`, fontSize: 8 },
-              { text: "", fontSize: 8 },
-            ],
-        ]
-      },
-      layout: 'noBorders'
-    };
-  }
-},
+          },
+          layout: "noBorders",
+        };
+      }
+    },
 
-    // styles
     styles: {
       title: {
         fontSize: 20,
@@ -456,12 +440,16 @@ footer: function(currentPage, pageCount) {
   };
 }
 
+// ============================================================
+// BACKEND-UPLOAD AV PDF
+// ============================================================
 
-// Ladda upp PDF till backend
-async function uploadPdfToServer(blob, machineNo, serviceDate, filename) {
+async function uploadPdfToServer(blob, customer, machineNo, serviceDate, filename) {
   const formData = new FormData();
   formData.append("pdf", blob, filename);
-  formData.append("machine_number", machineNo || "");
+  formData.append("customer", customer);
+  formData.append("machine_number", machineNo);
+  formData.append("serviceDate", serviceDate);
   formData.append("filename", filename);
 
   const response = await fetch("/save_pdf_report", {
@@ -474,9 +462,13 @@ async function uploadPdfToServer(blob, machineNo, serviceDate, filename) {
   }
 }
 
-// Dynamisk extra rad i spare parts när sista raden fylls
+// ============================================================
+// RESERVDELAR – AUTO-RADER
+// ============================================================
+
 function setupSparePartsAutoRow() {
   const body = document.getElementById("sparePartsBody");
+  if (!body) return;
 
   function onInput() {
     const rows = body.querySelectorAll("tr");
@@ -506,31 +498,34 @@ function setupSparePartsAutoRow() {
   body.querySelectorAll("tr").forEach((tr) => attachRowListeners(tr));
 }
 
-// Init
+// ============================================================
+// INIT
+// ============================================================
+
 let logoBase64 = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
+  // Ladda logga
   logoBase64 = await loadImageAsBase64("/static/images/apab_logo_512.png");
-  
-  const check = document.getElementById("noSpareParts");
-  const spareBox = document.querySelector(".spare-parts");
 
-  if (!check ||!spareBox) return;
-  function updateSparePartsState() {
-    if (check.checked) {
-      spareBox.classList.add("disabled");
-    } else {
-      spareBox.classList.remove("disabled");
-    }
-  }
-
-  check.addEventListener("change", updateSparePartsState);
-  updateSparePartsState();
-
-  setLanguage("sv")
+  // Språk & reservdelstabell
+  setLanguage("sv");
   setupSparePartsAutoRow();
 
-  const btn = document.getElementById("downloadPdf");
+  // Gråa ut reservdelar när "No spare parts..." är ikryssad
+  const check = document.getElementById("noSpareParts");
+  const spareBox = document.querySelector(".spare-parts");
+  if (check && spareBox) {
+    const updateSparePartsState = () => {
+      spareBox.classList.toggle("disabled", check.checked);
+    };
+    check.addEventListener("change", updateSparePartsState);
+    updateSparePartsState();
+  }
+
+  // PDF-knappen
+const btn = document.getElementById("downloadPdf");
+if (btn) {
   btn.addEventListener("click", async () => {
     const data = getFormData();
     const docDefinition = buildDocDefinition(data);
@@ -542,16 +537,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     const pdfDoc = pdfMake.createPdf(docDefinition);
 
     pdfDoc.getBlob(async (blob) => {
-      // 1) spara i databasen
       try {
-        await uploadPdfToServer(blob, machineNo, date, filename);
+        await uploadPdfToServer(blob, data.customer, data.machineNo, data.serviceDate, filename);
         console.log("PDF uploaded successfully.");
       } catch (e) {
         console.error("Upload error:", e);
+      } finally {
+        pdfMake.createPdf(docDefinition).download(filename);
       }
-
-      // 2) ladda ner till användaren
-      pdfMake.createPdf(docDefinition).download(filename);
     });
   });
-});
+}});
