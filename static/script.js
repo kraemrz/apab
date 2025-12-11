@@ -233,42 +233,77 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // --- MAIN: DOCX-UPPLADDNING ---
     function handleFileUpload(file) {
-        const formData = new FormData();
-        formData.append("file", file);
-        resultDiv.innerHTML = '🔄 Läser in och analyserar dokumentet...';
+    const formData = new FormData();
+    formData.append("file", file);
+    resultDiv.innerHTML = '🔄 Läser in och analyserar dokumentet...';
 
-        fetch("/upload", { method: "POST", body: formData })
-            .then(r => r.json())
-            .then(data => {
-                if (data.error) {
-                    resultDiv.innerHTML = `❌ Fel vid inläsning: ${data.error}`;
-                    currentAutosaveFileHandle = null;
-                    currentAutosaveFilename   = '';
-                    return;
-                }
-
-                historicalData       = data.history || {};
-                resultDiv.dataset.lang = data.lang;
-
-                displayContent(data.blocks);   // bygger HTML + historik
-
-                currentLang     = data.lang;
-                currentCustomer = data.customer;
-                currentMachine  = data.machine;
-
-                langInput.value     = currentLang;
-                customerInput.value = currentCustomer;
-                machineInput.value  = currentMachine;
-
-                exportControls.style.display = "flex";
-            })
-            .catch(err => {
-                console.error(err);
-                resultDiv.innerHTML = '❌ Ett fel uppstod vid kommunikation med servern.';
+    fetch("/upload", { method: "POST", body: formData })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                resultDiv.innerHTML = `❌ Fel vid inläsning: ${data.error}`;
                 currentAutosaveFileHandle = null;
                 currentAutosaveFilename   = '';
-            });
-    }
+                return;
+            }
+
+            historicalData         = data.history || {};
+            resultDiv.dataset.lang = data.lang;
+
+            // 🔥 Bygger tabeller & historik
+            displayContent(data.blocks);
+
+            currentLang     = data.lang;
+            currentCustomer = data.customer;
+            currentMachine  = data.machine;
+
+            langInput.value     = currentLang;
+            customerInput.value = currentCustomer;
+            machineInput.value  = currentMachine;
+
+            // 🔥 Visa servicerapporter sedan senaste inspektionen
+            if (data.service_reports?.length) {
+            const container = document.querySelector(".container");
+            const box = document.createElement("div");
+            box.className = "service-info-box";
+            const gap = document.createElement("div");
+            gap.className = "service-info-gap";
+            box.innerHTML = `
+                <div class="service-info-header">
+                    🛠 Service utförd sedan senaste inspektionen
+                </div>
+                <div class="service-info-body">
+                    ${data.service_reports.map(r => `
+                        <div class="service-row">
+                            <span class="service-date">${r.service_date}</span>
+                            <a 
+                                href="${r.url}" 
+                                target="_blank"
+                                class="service-link"
+                            >
+                                ${r.filename}
+                            </a>
+                        </div>
+                    `).join("")}
+                </div>
+            `;
+
+            container.insertAdjacentElement("beforebegin", gap);
+            container.insertAdjacentElement("beforebegin", box);
+
+            }
+
+                        exportControls.style.display = "flex";
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        resultDiv.innerHTML = '❌ Ett fel uppstod vid kommunikation med servern.';
+                        currentAutosaveFileHandle = null;
+                        currentAutosaveFilename   = '';
+                    });
+                }
+
+
 
     // --- MAIN: JSON-UPPLADDNING (temporär fil) ---
     function processJSONFile(file) {
@@ -739,4 +774,5 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
     }
+
 }); // DOMContentLoaded

@@ -210,6 +210,54 @@ body.dark-mode #drop-zone:hover {
 }
 
 /* ============================================================
+   SERVICE INFORMATION (INSPECTION)
+   ============================================================ */
+.service-info-box {
+    background: var(--bg-surface-light);
+    border-left: 4px solid #e2b648;
+    border-radius: 6px;
+    padding: 15px 20px;
+
+    max-width: 1500px;
+    margin: -1rem auto 1.5rem auto;
+    box-shadow: var(--shadow-soft);
+}
+
+.service-info-gap {
+    height: 30px;
+    background: transparent;
+}
+
+.service-info-header {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.service-info-body .service-row {
+    margin: 6px 0;
+}
+
+.service-info-body .service-date {
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+.service-info-body .service-link {
+    color: #005bbb;
+    text-decoration: underline;
+}
+
+body.dark-mode .service-info-box {
+    background: var(--bg-surface-dark);
+    border-left-color: #f0c040;
+}
+
+body.dark-mode .service-info-body .service-link {
+    color: #7fb3ff;
+}
+
+/* ============================================================
    TABELLER (INSPECTION)
    ============================================================ */
 

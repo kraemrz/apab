@@ -5,6 +5,8 @@ from collections import defaultdict
 import os
 from dotenv import load_dotenv
 from urllib.parse import urlparse
+from datetime import date
+
 
 load_dotenv()
 
@@ -97,6 +99,44 @@ class ServiceReport(Model):
     class Meta:
         database = db
 
+def get_last_inspection(customer, machine):
+    record = (
+        Inspection
+        .select()
+        .where(
+            (Inspection.customer == customer) &
+            (Inspection.machine == machine)
+        )
+        .order_by(Inspection.inspection_date.desc())
+        .first()
+    )
+    return record.inspection_date if record else None
+
+
+def get_service_reports_between(customer, machine, start_date, end_date):
+    query = (
+        ServiceReport
+        .select()
+        .where(
+            (ServiceReport.customer == customer) &
+            (ServiceReport.machine_number == machine) &
+            (ServiceReport.service_date >= start_date) &
+            (ServiceReport.service_date <= end_date)
+        )
+        .order_by(ServiceReport.service_date.asc())
+    )
+
+    return [
+        {
+            "id": r.id,
+            "customer": r.customer,
+            "machine": r.machine_number,
+            "service_date": r.service_date.strftime("%Y-%m-%d") if r.service_date else None,
+            "filename": r.filename,
+            "pdf_path": r.pdf_path
+        }
+        for r in query
+    ]
 
 def save_service_report(customer, machine_number, service_date, filename, pdf_path):
     init_db()

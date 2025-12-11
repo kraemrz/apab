@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory, abort
 from werkzeug.utils import secure_filename
 from docx import Document
 from docx.table import Table
@@ -15,9 +15,11 @@ from docx.oxml.ns import qn
 from bs4 import BeautifulSoup
 from io import BytesIO
 from datetime import datetime
-from database import add_inspection, get_history_for_machine, save_service_report
+from database import add_inspection, get_history_for_machine, save_service_report, get_last_inspection, get_service_reports_between
 import json
-from minio_client import minio_upload_pdf, list_reports, get_pdf_url, delete_report
+from minio_client import minio_upload_pdf, list_reports, get_pdf_url, delete_report, fetch_pdf
+from datetime import date
+
 
 SAVE_FOLDER = 'Sparade_Rapporter'
 os.makedirs(SAVE_FOLDER, exist_ok=True)
@@ -75,6 +77,7 @@ def detect_language_from_doc(document):
     text_content = [cell.text.lower() for table in document.tables for row in table.rows for cell in row.cells]
     full_text = " ".join(text_content)
     return 'en' if any(keyword in full_text for keyword in TRANSLATIONS['en']['keywords']) else 'sv'
+
 
 @app.route("/ping", methods=["GET", "HEAD"])
 def ping_server():
@@ -140,13 +143,28 @@ def upload_file():
                 table_data = [[cell.text.strip() for cell in row.cells] for row in t.rows]
                 blocks.append({"type": "table", "data": table_data})
 
+        # Hämta senaste inspektion för maskinen
+        last_inspection = get_last_inspection(customer, machine)
+
+        # Idag
+        today = date.today()
+
+        # Sök servicerapporter
+        service_reports = []
+        if last_inspection:
+            service_reports = get_service_reports_between(customer, machine, last_inspection, today)
+        
+        for r in service_reports:
+            r["url"] = f"/download_report?path={r['pdf_path']}"
+
         return jsonify({
-            "blocks": blocks, 
-            "lang": detected_lang, 
-            "customer": customer, 
+            "blocks": blocks,
+            "lang": detected_lang,
+            "customer": customer,
             "machine": machine,
-            "history": history_data
-            })
+            "history": history_data,
+            "service_reports": service_reports
+        })
 
     
     except Exception as e:
@@ -201,11 +219,50 @@ def list_machine_reports(machine):
     reports = list_reports(machine)
     return jsonify(reports)
 
-@app.route("/report_url")
-def get_report_url():
+@app.route("/download_report")
+def download_report():
     path = request.args.get("path")
-    url = get_pdf_url(path)
-    return jsonify({"url": url})
+    if not path:
+        abort(400, description="Missing 'path' parameter")
+
+    try:
+        pdf_bytes = fetch_pdf(path)
+    except Exception as e:
+        print("Error fetching PDF from MinIO:", e)
+        abort(404, description="PDF not found")
+
+    filename = path.split("/")[-1] or "report.pdf"
+
+    return send_file(
+        BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=False,
+        download_name=filename,
+    )
+
+@app.route("/report_url")
+def report_url():
+    path = request.args.get("path")
+
+    if not path:
+        print("[/report_url] ERROR: path saknas i querystring")
+        return jsonify({"error": "missing_path"}), 400
+
+    try:
+        # get_pdf_url ska returnera en sträng med en presigned URL
+        url = get_pdf_url(path)
+        print(f"[/report_url] path={path} -> url={url}")
+
+        if not url:
+            # Viktigt: svara tydligt så vi ser det i frontenden
+            return jsonify({"error": "no_url_generated", "url": None}), 500
+
+        return jsonify({"url": url})
+
+    except Exception as e:
+        print(f"[/report_url] ERROR:", e)
+        return jsonify({"error": str(e), "url": None}), 500
+
 
 @app.route("/delete_report", methods=["POST"])
 def delete_report_api():
@@ -226,6 +283,8 @@ def export_to_word():
     comments_data = json.loads(comments_json)
 
     soup = BeautifulSoup(html_content, "html.parser")
+    for box in soup.select(".service-info-box"):
+        box.decompose()
     document = Document()
     
     document.add_picture(resource_path("static/images/apab_logo.png"), width=Inches(3.0))
