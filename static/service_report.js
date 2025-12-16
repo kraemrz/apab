@@ -186,6 +186,22 @@ function getFormData() {
   };
 }
 
+// ===========================================================
+// MASKINNUMMER – AUTOFORMATTERING
+// ===========================================================
+const machineInput = document.getElementById("machineNo");
+
+machineInput.addEventListener("input", () => {
+    let value = machineInput.value.toUpperCase();
+
+    // Ta bort allt som inte är siffror
+    value = value.replace(/[^0-9]/g, "");
+
+    // Lägg alltid till M först
+    machineInput.value = value ? `M${value}` : "M";
+});
+
+
 // ============================================================
 // HJÄLPFUNKTIONER
 // ============================================================

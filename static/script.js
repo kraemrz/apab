@@ -31,6 +31,56 @@ function fallbackDownload(blob, filename) {
     URL.revokeObjectURL(url);
 }
 
+function renderServiceReports(reports, machineNo) {
+    const container = document.getElementById("service-info-container");
+    if (!container) {
+        console.warn("Service info container saknas i DOM");
+        return;
+    }
+    container.innerHTML = "";
+
+    if (!reports || reports.length === 0) {
+        console.group("Service report lookup");
+        console.log("Maskin:", machineNo);
+        console.log("Reports:", reports);
+        console.groupEnd();
+        return;
+    }
+
+    const box = document.createElement("div");
+    box.className = "service-info-box";
+
+    const header = document.createElement("div");
+    header.className = "service-info-header";
+    header.textContent = "Servicerapporter sedan senaste inspektion";
+    box.appendChild(header);
+
+    const body = document.createElement("div");
+    body.className = "service-info-body";
+
+    reports.forEach(r => {
+        const row = document.createElement("div");
+        row.className = "service-row";
+
+        row.innerHTML = `
+            <span class="service-date">${r.service_date}</span>
+            <a class="service-link" href="${r.url}" target="_blank">
+                ${r.filename}
+            </a>
+        `;
+
+        body.appendChild(row);
+    });
+
+    box.appendChild(body);
+    container.appendChild(box);
+
+    // liten luft efter
+    const gap = document.createElement("div");
+    gap.className = "service-info-gap";
+    container.appendChild(gap);
+}
+
 // --- KNAPP MÖRKT/LJUST LÄGE (global) ---
 window.toggleDark = function () {
     document.body.classList.toggle('dark-mode');
@@ -261,47 +311,18 @@ document.addEventListener("DOMContentLoaded", function () {
             customerInput.value = currentCustomer;
             machineInput.value  = currentMachine;
 
-            // 🔥 Visa servicerapporter sedan senaste inspektionen
-            if (data.service_reports?.length) {
-            const container = document.querySelector(".container");
-            const box = document.createElement("div");
-            box.className = "service-info-box";
-            const gap = document.createElement("div");
-            gap.className = "service-info-gap";
-            box.innerHTML = `
-                <div class="service-info-header">
-                    🛠 Service utförd sedan senaste inspektionen
-                </div>
-                <div class="service-info-body">
-                    ${data.service_reports.map(r => `
-                        <div class="service-row">
-                            <span class="service-date">${r.service_date}</span>
-                            <a 
-                                href="${r.url}" 
-                                target="_blank"
-                                class="service-link"
-                            >
-                                ${r.filename}
-                            </a>
-                        </div>
-                    `).join("")}
-                </div>
-            `;
+            renderServiceReports(data.service_reports, currentMachine);
 
-            container.insertAdjacentElement("beforebegin", gap);
-            container.insertAdjacentElement("beforebegin", box);
 
+            exportControls.style.display = "flex";
+                })
+                .catch(err => {
+                    console.error(err);
+                    resultDiv.innerHTML = '❌ Ett fel uppstod vid kommunikation med servern.';
+                    currentAutosaveFileHandle = null;
+                    currentAutosaveFilename   = '';
+                });
             }
-
-                        exportControls.style.display = "flex";
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        resultDiv.innerHTML = '❌ Ett fel uppstod vid kommunikation med servern.';
-                        currentAutosaveFileHandle = null;
-                        currentAutosaveFilename   = '';
-                    });
-                }
 
 
 
@@ -371,8 +392,21 @@ document.addEventListener("DOMContentLoaded", function () {
             if (element.tagName === 'H1') {
                 // STATION = H1 ("Station 101"), matchar databasen
                 currentStation = element.textContent.trim();
-            } else if (element.tagName === 'TABLE' && element.classList.contains('inspection-table')) {
+                return;
+            } 
+
+            if ( element.tagName === 'H2') {
+                const section = element.textContent.trim().toLowerCase();
+                if (
+                    section.startsWith('övrigt') || section.startsWith('other')){
+                currentStation = 'Övrigt';
+
+            }
+            return;
+        }
+            else if (element.tagName === 'TABLE' && element.classList.contains('inspection-table')) {
                 const actionColIndex = 1;
+
                 element.querySelectorAll('tr').forEach((row, idx) => {
                     if (idx === 0) return;
                     const statusCell  = row.children[0];

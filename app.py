@@ -19,6 +19,7 @@ from database import add_inspection, get_history_for_machine, save_service_repor
 import json
 from minio_client import minio_upload_pdf, list_reports, get_pdf_url, delete_report, fetch_pdf
 from datetime import date
+from collections import defaultdict
 
 
 SAVE_FOLDER = 'Sparade_Rapporter'
@@ -152,7 +153,7 @@ def upload_file():
         # Sök servicerapporter
         service_reports = []
         if last_inspection:
-            service_reports = get_service_reports_between(customer, machine, last_inspection, today)
+            service_reports = get_service_reports_between(machine, last_inspection, today)
         
         for r in service_reports:
             r["url"] = f"/download_report?path={r['pdf_path']}"
@@ -312,7 +313,51 @@ def export_to_word():
     add_table_of_contents(document, TRANSLATIONS[lang]['toc_title'])
     document.add_page_break()
 
-   
+
+    filtered_comments = [
+        c for c in comments_data
+        if c.get("station", "").strip().lower() != "övrigt"
+    ]
+
+
+    if comments_data:
+        if lang == "sv":
+            summary_title = "Summering"
+            headers = ["Status", "Åtgärd", "Kommentar"]
+            status_text = "Anm."
+        else:
+            summary_title = "Summary"
+            headers = ["Status", "Action", "Comment"]
+            status_text = "Note"
+
+        document.add_heading(summary_title, level=2)
+
+        # Gruppera kommentarer per station
+        grouped = defaultdict(list)
+        for c in filtered_comments:
+            grouped[c["station"]].append(c)
+
+        # Bygg tabell per station
+        for station, items in grouped.items():
+            # Stationsrubrik
+            document.add_heading(station, level=3)
+
+            table = document.add_table(rows=1, cols=3, style="Table Grid")
+            hdr_cells = table.rows[0].cells
+            hdr_cells[0].text = headers[0]
+            hdr_cells[1].text = headers[1]
+            hdr_cells[2].text = headers[2]
+
+            for item in items:
+                row = table.add_row().cells
+                row[0].text = status_text
+                row[1].text = item["action"]
+                row[2].text = item["comment"]
+
+        document.add_page_break()
+
+
+
     for element in soup.children:
         if not hasattr(element, 'name') or not element.name: continue
         text = element.get_text(strip=True)

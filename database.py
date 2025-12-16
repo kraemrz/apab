@@ -113,12 +113,11 @@ def get_last_inspection(customer, machine):
     return record.inspection_date if record else None
 
 
-def get_service_reports_between(customer, machine, start_date, end_date):
+def get_service_reports_between(machine, start_date, end_date):
     query = (
         ServiceReport
         .select()
         .where(
-            (ServiceReport.customer == customer) &
             (ServiceReport.machine_number == machine) &
             (ServiceReport.service_date >= start_date) &
             (ServiceReport.service_date <= end_date)
