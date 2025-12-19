@@ -12,8 +12,11 @@ services:
       POSTGRES_PASSWORD: ${DB_PROD_PASSWORD}
     volumes:
       - db-prod-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_PROD_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # -------------------------------------------------------
   # 🟩 TEST-DATABAS
@@ -27,8 +30,11 @@ services:
       POSTGRES_PASSWORD: ${DB_TEST_PASSWORD}
     volumes:
       - db-test-data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_PROD_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # -------------------------------------------------------
   # 🟨 MINIO PRODUKTION
@@ -69,12 +75,16 @@ services:
     build: .
     restart: always
     depends_on:
-      - db-prod
-      - db-test
-      - minio-prod
-      - minio-test
+      db-prod:
+        condition: service_healthy
+      db-test:
+        condition: service_healthy
+      minio-prod:
+        condition: service_started
+      minio-test:
+        condition: service_started
     ports:
-      - "3000:5000"
+      - "3000:8000"
     environment:
       SECRET_KEY: ${APP_SECRET_KEY}
 
