@@ -96,14 +96,14 @@ window.toggleDark = function () {
 // --- Huvudlogik ---
 document.addEventListener("DOMContentLoaded", function () {
     // --- SERVICE WORKER REG ---
-    if ('serviceWorker' in navigator) {
+    /*if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker
                 .register('/sw.js')
                 .then(reg => console.log('Service Worker registered with scope:', reg.scope))
                 .catch(err => console.error('Service Worker registration failed:', err));
         });
-    }
+    }*/
 
     // --- REFERENCES ---
     const dropZone          = document.getElementById("drop-zone");
@@ -546,11 +546,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
         blocks.forEach(block => {
             if (block.type === 'paragraph') {
-                if (block.text.toLowerCase().startsWith('station')) {
-                    // H1 = Station XXX -> station_name i databasen
+                const textLower = block.text.trim().toLowerCase();
+
+                if (textLower.startsWith('station')) {
                     currentStation = block.text.trim();
                     html += `<h1>${block.text}</h1>`;
-                } else {
+                }
+                else if (textLower.startsWith('övrigt') || textLower.startsWith('other')) {
+                    currentStation = 'Övrigt';
+                    html += `<h2>${block.text}</h2>`;
+                }
+                else {
                     html += `<h2>${block.text}</h2>`;
                 }
             } else if (block.type === 'table') {

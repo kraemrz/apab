@@ -75,20 +75,6 @@ class InspectionComment(Model):
         database = db
 
 class ServiceReport(Model):
-    customer = CharField()
-    machine_number = CharField()
-    created_date = DateTimeField(default=datetime.now)
-    filename = CharField()
-    pdf_data = BlobField()  # <-- HÄR SPARAS SJÄLVA PDF-FILEN (BYTEA)
-
-    class Meta:
-        database = db
-
-def init_db():
-    with db:
-        db.create_tables([Inspection, InspectionComment, ServiceReport])
-
-class ServiceReport(Model):
     customer = CharField(null=True)
     machine_number = CharField()
     service_date = DateField(null=True)
@@ -138,8 +124,6 @@ def get_service_reports_between(machine, start_date, end_date):
     ]
 
 def save_service_report(customer, machine_number, service_date, filename, pdf_path):
-    init_db()
-
     report = ServiceReport.create(
         customer=customer,
         machine_number=machine_number,
@@ -172,11 +156,11 @@ def add_inspection(customer, machine, inspection_date, inspector=None, notes=Non
             print(f"Transaktionen misslyckades: {e}")
             transaction.rollback()
 
-def get_history_for_machine(machine_id):
+def get_history_for_machine(machine):
     query = (InspectionComment
              .select(InspectionComment.station_name, InspectionComment.action_text, InspectionComment.comment_text, Inspection.inspection_date)
              .join(Inspection)
-             .where(Inspection.machine == machine_id)
+             .where(Inspection.machine == machine)
              .order_by(Inspection.inspection_date.desc()))
 
     history_map = defaultdict(list)
@@ -189,8 +173,3 @@ def get_history_for_machine(machine_id):
         })
         
     return dict(history_map)
-
-if __name__ == '__main__':
-    print("Initierar databas...")
-    init_db()
-    print("Klar.")
