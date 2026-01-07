@@ -85,6 +85,27 @@ class ServiceReport(Model):
     class Meta:
         database = db
 
+class InspectionHistory(Model):
+    customer = CharField()
+    machine = CharField()
+    inspection_date = DateField()
+
+    json_path = TextField()
+    docx_path = TextField(null=True)
+
+    created_at = DateTimeField(default=datetime.now)
+
+    class Meta:
+        database = db
+        table_name = "inspection_history"
+        indexes = (
+        (("customer",), False),
+        (("machine",), False),
+        (("inspection_date",), False),
+        (("customer", "machine", "inspection_date"), True),
+        )
+
+
 def get_last_inspection(customer, machine):
     record = (
         Inspection
@@ -173,3 +194,68 @@ def get_history_for_machine(machine):
         })
         
     return dict(history_map)
+
+def list_inspection_history(
+    customer: str | None = None,
+    machine: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+):
+    query = InspectionHistory.select()
+
+    if customer:
+        query = query.where(InspectionHistory.customer.ilike(f"%{customer}%"))
+
+    if machine:
+        query = query.where(InspectionHistory.machine.ilike(f"%{machine}%"))
+
+    if date_from:
+        query = query.where(InspectionHistory.inspection_date >= date_from)
+
+    if date_to:
+        query = query.where(InspectionHistory.inspection_date <= date_to)
+
+    query = query.order_by(InspectionHistory.inspection_date.desc())
+
+    return [
+        {
+            "id": row.id,
+            "customer": row.customer,
+            "machine": row.machine,
+            "inspection_date": row.inspection_date.isoformat(),
+            "json_path": row.json_path,
+            "docx_path": row.docx_path,
+            "created_at": row.created_at.isoformat(),
+        }
+        for row in query
+    ]
+
+def upsert_inspection_history(
+    customer: str,
+    machine: str,
+    inspection_date: date,
+    json_path: str,
+):
+    record = (
+        InspectionHistory
+        .select()
+        .where(
+            (InspectionHistory.customer == customer) &
+            (InspectionHistory.machine == machine) &
+            (InspectionHistory.inspection_date == inspection_date)
+        )
+        .first()
+    )
+
+    if record:
+        record.json_path = json_path
+        record.save()
+        return record.id
+    else:
+        new = InspectionHistory.create(
+            customer=customer,
+            machine=machine,
+            inspection_date=inspection_date,
+            json_path=json_path,
+        )
+        return new.id

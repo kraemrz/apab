@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <title>Historik & Sök</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/history.css') }}">
+</head>
+
+<body>
+  <div class="card" style="max-width: 1200px; margin: 40px auto;">
+    <h1>Historik & Sök</h1>
+
+    <!-- FILTER -->
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
+      <input type="text" id="filterCustomer" placeholder="Kund">
+      <input type="text" id="filterMachine" placeholder="Maskin">
+      <input type="date" id="filterFrom">
+      <input type="date" id="filterTo">
+      <button onclick="search()">Sök</button>
+    </div>
+
+    <!-- TABLE -->
+    <table width="100%" border="1" cellspacing="0" cellpadding="6">
+      <thead>
+        <tr>
+          <th>Datum</th>
+          <th>Kund</th>
+          <th>Maskin</th>
+          <th>Filer</th>
+          <th>Åtgärd</th>
+        </tr>
+      </thead>
+      <tbody id="historyTableBody">
+        <!-- rows -->
+      </tbody>
+    </table>
+  </div>
+
+  <script src="{{ url_for('static', filename='history_page.js') }}"></script>
+</body>
+</html>

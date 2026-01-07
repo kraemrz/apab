@@ -15,9 +15,9 @@ from docx.oxml.ns import qn
 from bs4 import BeautifulSoup
 from io import BytesIO
 from datetime import datetime
-from database import add_inspection, get_history_for_machine, save_service_report, get_last_inspection, get_service_reports_between
+from database import add_inspection, get_history_for_machine, save_service_report, get_last_inspection, get_service_reports_between, list_inspection_history, upsert_inspection_history
 import json
-from minio_client import minio_upload_pdf, list_reports, get_pdf_url, delete_report, fetch_pdf
+from minio_client import minio_upload_pdf, list_reports, get_pdf_url, delete_report, fetch_pdf, build_report_path, minio_upload_json, build_inspection_path, fetch_json
 from datetime import date
 from collections import defaultdict
 
@@ -94,7 +94,49 @@ def inspection_editor():
 
 @app.route('/history_page')
 def history_page():
-    return "<h1>Historik-sida under utveckling...</h1><p><a href='/'>Tillbaka till huvudmenyn</a></p>"
+    return render_template('history_page.html')
+
+@app.route("/api/inspection-history")
+def api_inspection_history():
+    customer = request.args.get("customer") or None
+    machine = request.args.get("machine") or None
+
+    date_from = request.args.get("from")
+    date_to = request.args.get("to")
+
+    # konvertera datumsträng → date
+    date_from = date.fromisoformat(date_from) if date_from else None
+    date_to = date.fromisoformat(date_to) if date_to else None
+
+    rows = list_inspection_history(
+        customer=customer,
+        machine=machine,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+    return jsonify(rows)
+
+@app.route("/inspection/view")
+def inspection_view():
+    path = request.args.get("path")
+    if not path:
+        abort(400, description="Missing inspection path")
+
+    return render_template(
+        "inspection_view.html",
+        json_path=path
+    )
+
+@app.route("/api/inspection/load")
+def api_load_inspection():
+    path = request.args.get("path")
+    if not path:
+        abort(400)
+
+    data = fetch_json(path)
+    return jsonify(data)
+
 
 @app.route('/backlog_page')
 def backlog_page():
@@ -196,7 +238,12 @@ def save_pdf_report():
         pdf_bytes = pdf_file.read()
 
         # 1) Spara PDF i MinIO
-        object_path = f"{machine_number}/{filename}"
+        object_path = build_report_path(
+            customer=customer,
+            machine_number=machine_number,
+            service_date=service_date
+        )
+
         minio_upload_pdf(object_path, pdf_bytes)
 
         # 2) Spara metadata i Postgres
@@ -382,6 +429,7 @@ def export_to_word():
                             row_cells[j].text = cell_text
                     document.add_paragraph()
                 except IndexError: print("Skipping malformed table.")
+
     
     doc_io = BytesIO()
     document.save(doc_io)
@@ -389,6 +437,7 @@ def export_to_word():
     
     filename_prefix = TRANSLATIONS[lang]['report_title']
     download_name = f"{filename_prefix}_{customer.replace(' ', '_')}_{machine.replace(' ', '_')}_{inspection_date}.docx"
+    
     try:
         add_inspection(
             customer=customer, 
@@ -399,6 +448,33 @@ def export_to_word():
         print(f"INFO: Inspection added for {customer} - {machine} on {inspection_date}")
     except Exception as e:
         print(f"Error saving inspection: {e}")
+
+    inspection_payload = {
+        "type": "inspection",
+        "version": 1,
+        "customer": customer,
+        "machine": machine,
+        "inspection_date": inspection_date,
+        "lang": lang,
+        "signature": signature,
+        "comments": comments_data,
+        "exported_at": datetime.utcnow().isoformat()
+    }
+    inspection_path = build_inspection_path(
+        customer=customer,
+        machine=machine,
+        inspection_date=inspection_date
+    )
+
+    minio_upload_json(inspection_path, inspection_payload)
+
+    upsert_inspection_history(
+        customer=customer,
+        machine=machine,
+        inspection_date=inspection_date,
+        json_path=inspection_path,
+    )
+
     return send_file(doc_io, as_attachment=True, download_name=download_name, mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
 
