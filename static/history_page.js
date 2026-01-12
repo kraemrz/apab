@@ -2,7 +2,7 @@ function renderTable(rows) {
   const tbody = document.getElementById("historyTableBody");
   tbody.innerHTML = "";
 
-  if (!rows || rows.length === 0) {
+  if (!rows.length) {
     tbody.innerHTML = `<tr><td colspan="5">Inga träffar</td></tr>`;
     return;
   }
@@ -10,31 +10,35 @@ function renderTable(rows) {
   rows.forEach(row => {
     const tr = document.createElement("tr");
 
+    const pdfCell = row.pdf
+      ? `<a href="/download_report?path=${encodeURIComponent(row.pdf.pdf_path)}"
+           target="_blank"
+           title="Service ${row.pdf.service_date}">
+           📄 ${row.pdf.filename}
+         </a>`
+      : "—";
+
     tr.innerHTML = `
       <td>${row.inspection_date}</td>
       <td>${row.customer}</td>
       <td>${row.machine}</td>
       <td>
-        ${row.json_path ? "🟢 JSON" : "⚪"}
-        ${row.docx_path ? " 📄 Word" : ""}
+        🟢 JSON<br>
+        ${pdfCell}
       </td>
       <td>
-        ${row.json_path ? `
-          <button class="open-btn" data-path="${row.json_path}">
-            Öppna
-          </button>
-        ` : ""}
-        ${row.docx_path ? `
-          <button class="download-btn" data-path="${row.docx_path}">
-            Word
-          </button>
-        ` : ""}
+        <button class="open-btn"
+                data-path="${row.json_path}">
+          Öppna
+        </button>
       </td>
     `;
 
     tbody.appendChild(tr);
   });
 }
+
+
 
 async function search() {
   const customer = document.getElementById("filterCustomer").value;

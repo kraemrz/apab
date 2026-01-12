@@ -30,6 +30,8 @@ async function loadInspection() {
   }
 }
 
+
+
 function renderInspection(data) {
   container.innerHTML = `
     <h2>${data.customer} – ${data.machine}</h2>

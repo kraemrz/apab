@@ -15,9 +15,30 @@ from docx.oxml.ns import qn
 from bs4 import BeautifulSoup
 from io import BytesIO
 from datetime import datetime
-from database import add_inspection, get_history_for_machine, save_service_report, get_last_inspection, get_service_reports_between, list_inspection_history, upsert_inspection_history
+from database import (
+    add_inspection, 
+    get_history_for_machine, 
+    save_service_report, 
+    get_last_inspection, 
+    get_service_reports_between, 
+    list_inspection_history, 
+    upsert_inspection_history, 
+    InspectionHistory, 
+    get_nearest_service_report,
+    ServiceReport
+)
 import json
-from minio_client import minio_upload_pdf, list_reports, get_pdf_url, delete_report, fetch_pdf, build_report_path, minio_upload_json, build_inspection_path, fetch_json
+from minio_client import (
+    minio_upload_pdf, 
+    list_reports, 
+    get_pdf_url, 
+    delete_report, 
+    fetch_pdf, 
+    build_report_path, 
+    minio_upload_json, 
+    build_inspection_path, 
+    fetch_json
+)
 from datetime import date
 from collections import defaultdict
 
@@ -97,25 +118,50 @@ def history_page():
     return render_template('history_page.html')
 
 @app.route("/api/inspection-history")
-def api_inspection_history():
-    customer = request.args.get("customer") or None
-    machine = request.args.get("machine") or None
+def inspection_history():
+    customer = request.args.get("customer")
+    machine = request.args.get("machine")
+    from_date = request.args.get("from")
+    to_date = request.args.get("to")
 
-    date_from = request.args.get("from")
-    date_to = request.args.get("to")
+    query = InspectionHistory.select()
 
-    # konvertera datumsträng → date
-    date_from = date.fromisoformat(date_from) if date_from else None
-    date_to = date.fromisoformat(date_to) if date_to else None
+    if customer:
+        query = query.where(InspectionHistory.customer.ilike(f"%{customer}%"))
+    if machine:
+        query = query.where(InspectionHistory.machine.ilike(f"%{machine}%"))
+    if from_date:
+        query = query.where(InspectionHistory.inspection_date >= from_date)
+    if to_date:
+        query = query.where(InspectionHistory.inspection_date <= to_date)
 
-    rows = list_inspection_history(
-        customer=customer,
-        machine=machine,
-        date_from=date_from,
-        date_to=date_to,
-    )
+    results = []
 
-    return jsonify(rows)
+    for row in query.order_by(InspectionHistory.inspection_date.desc()):
+        # hämta service reports för samma maskin
+        nearest_pdf = get_nearest_service_report(
+            row.machine,
+            row.inspection_date
+        )
+
+
+        results.append({
+            "customer": row.customer,
+            "machine": row.machine,
+            "inspection_date": row.inspection_date.isoformat(),
+            "json_path": row.json_path,
+            "docx_path": row.docx_path,
+
+            "pdf": {
+                "filename": nearest_pdf.filename,
+                "pdf_path": nearest_pdf.pdf_path,
+                "service_date": nearest_pdf.service_date.isoformat()
+            } if nearest_pdf else None
+        })
+
+
+    return jsonify(results)
+
 
 @app.route("/inspection/view")
 def inspection_view():
@@ -140,7 +186,102 @@ def api_load_inspection():
 
 @app.route('/backlog_page')
 def backlog_page():
-    return "<h1>Backlogg-sida under utveckling...</h1><p><a href='/'>Tillbaka till huvudmenyn</a></p>"
+    return render_template('backlogg.html')
+
+from flask import jsonify
+from collections import defaultdict
+
+@app.route("/api/backlog/customers")
+def backlog_customers():
+    customers = defaultdict(set)
+
+    # --- Inspektioner ---
+    inspections = (
+        InspectionHistory
+        .select(InspectionHistory.customer, InspectionHistory.machine)
+    )
+
+    for row in inspections:
+        customers[row.customer].add(row.machine)
+
+    # --- Service rapporter ---
+    services = (
+        ServiceReport
+        .select(ServiceReport.customer, ServiceReport.machine_number)
+        .where(ServiceReport.customer.is_null(False))
+    )
+
+    for row in services:
+        customers[row.customer].add(row.machine_number)
+
+    # --- Formatterat svar ---
+    result = [
+        {
+            "customer": customer,
+            "machines": len(machines)
+        }
+        for customer, machines in sorted(customers.items())
+    ]
+
+    return jsonify(result)
+
+@app.route("/api/backlog/customer/<customer>")
+def backlog_customer(customer):
+    result = {}
+
+    # -----------------------------
+    # Inspektioner
+    # -----------------------------
+    inspections = (
+        InspectionHistory
+        .select()
+        .where(InspectionHistory.customer == customer)
+        .order_by(InspectionHistory.inspection_date.desc())
+    )
+
+    for ins in inspections:
+        machine = ins.machine
+        result.setdefault(machine, {
+            "machine": machine,
+            "inspections": [],
+            "service_reports": []
+        })
+
+        result[machine]["inspections"].append({
+            "date": ins.inspection_date.isoformat(),
+            "json_path": ins.json_path,
+            "docx_path": ins.docx_path
+        })
+
+    # -----------------------------
+    # Service rapporter
+    # -----------------------------
+    reports = (
+        ServiceReport
+        .select()
+        .where(ServiceReport.customer == customer)
+        .order_by(ServiceReport.service_date.desc())
+    )
+
+    for rep in reports:
+        machine = rep.machine_number
+        result.setdefault(machine, {
+            "machine": machine,
+            "inspections": [],
+            "service_reports": []
+        })
+
+        result[machine]["service_reports"].append({
+            "date": rep.service_date.isoformat() if rep.service_date else None,
+            "filename": rep.filename,
+            "pdf_path": rep.pdf_path
+        })
+
+    return jsonify({
+        "customer": customer,
+        "machines": list(result.values())
+    })
+
 
 @app.route('/service_report')
 def service_report():

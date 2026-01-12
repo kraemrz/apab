@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <title>Backlogg</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/css/backlogg.css">
+</head>
+<body>
+
+<div class="controls">
+  <div class="left"><strong>Backlogg</strong></div>
+</div>
+
+<div class="container">
+
+  <div class="backlog-layout">
+  <div class="backlog-left">
+    <h3>Kunder</h3>
+    <div id="customerList"></div>
+  </div>
+
+  <div class="backlog-right">
+    <h3 id="customerTitle">Välj en kund</h3>
+    <div id="customerDetails"></div>
+  </div>
+</div>
+</div>
+  <a href="{{ url_for('index') }}" id="homeButton" class="btn_home">🏠 Tillbaka till huvudmenyn</a>
+<script src="/static/backlogg.js"></script>
+</body>
+</html>

@@ -144,6 +144,18 @@ def get_service_reports_between(machine, start_date, end_date):
         for r in query
     ]
 
+def get_nearest_service_report(machine, inspection_date):
+    return (
+        ServiceReport
+        .select()
+        .where(
+            (ServiceReport.machine_number == machine) &
+            (ServiceReport.service_date <= inspection_date)
+        )
+        .order_by(ServiceReport.service_date.desc())
+        .first()
+    )
+
 def save_service_report(customer, machine_number, service_date, filename, pdf_path):
     report = ServiceReport.create(
         customer=customer,
