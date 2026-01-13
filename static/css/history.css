@@ -53,13 +53,38 @@ body.dark-mode #historyTableBody tr:hover {
   color: #9ca3af; /* grå */
 }
 
-.pdf-item {
-  line-height: 1.4;
+/* Badge */
+.pdf-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #e6f4ea;
+  color: #137333;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pdf-badge:hover {
+  background: #d4eedc;
+}
+
+/* PDF-lista */
+.pdf-list {
+  margin-top: 6px;
+}
+
+.pdf-list.hidden {
+  display: none;
 }
 
 .pdf-item a {
-  display: inline-block;
+  display: block;
+  font-size: 13px;
+  color: #0b57d0;
   text-decoration: none;
+  margin-top: 4px;
 }
 
 .pdf-item a:hover {

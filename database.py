@@ -254,8 +254,8 @@ def list_inspection_history(
 
             # nästa inspektion (äldre)
             end_date = (
-                inspections[idx + 1].inspection_date
-                if idx + 1 < len(inspections)
+                inspections[idx - 1].inspection_date
+                if idx > 0
                 else None
             )
 
@@ -335,7 +335,10 @@ def get_all_service_reports_for_machine(machine_number):
         ServiceReport
         .select()
         .where(ServiceReport.machine_number == machine_number)
-        .order_by(ServiceReport.created_date.asc())
+        .order_by(
+            ServiceReport.service_date.asc(),
+            ServiceReport.created_date.asc()
+        )
     )
 
     return [

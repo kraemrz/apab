@@ -43,16 +43,27 @@ function renderTable(rows) {
     let pdfCell = `<span class="status missing">● Inga rapporter</span>`;
 
     if (row.pdf_reports && row.pdf_reports.length > 0) {
-      pdfCell = row.pdf_reports.map(r => `
-        <div class="pdf-item">
-          <a class="status ok"
-             href="/download_report?path=${encodeURIComponent(r.pdf_path)}"
-             target="_blank"
-             onclick="event.stopPropagation()">
-             ● ${r.service_date}
-          </a>
+      const count = row.pdf_reports.length;
+      const listId = `pdf-list-${row.id}`;
+
+      pdfCell = `
+        <span class="pdf-badge"
+              onclick="togglePdfList('${listId}'); event.stopPropagation();">
+          🟢 ${count} rapport${count > 1 ? "er" : ""}
+        </span>
+
+        <div id="${listId}" class="pdf-list hidden">
+          ${row.pdf_reports.map(r => `
+            <div class="pdf-item">
+              <a href="/download_report?path=${encodeURIComponent(r.pdf_path)}"
+                target="_blank"
+                onclick="event.stopPropagation()">
+                📄 ${r.service_date}
+              </a>
+            </div>
+          `).join("")}
         </div>
-      `).join("");
+      `;
     }
 
     tr.innerHTML = `
@@ -105,6 +116,9 @@ async function search() {
   try {
     const res = await fetch("/api/inspection-history?" + params.toString());
     currentRows = await res.json();
+    currentRows.sort((a, b) =>
+      b.inspection_date.localeCompare(a.inspection_date)
+    );
     console.log("API rows:", currentRows);
     renderTable(currentRows);
   } catch (err) {
@@ -131,7 +145,7 @@ function sortTable(colIndex) {
     return A.localeCompare(B) * sortDir;
   });
 
-  sortDir *= -1;
+  sortDir = 1;
   renderTable(currentRows);
 }
 
@@ -169,3 +183,10 @@ document.addEventListener("click", e => {
    ============================================================ */
 
 search();
+
+function togglePdfList(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle("hidden");
+}
+
