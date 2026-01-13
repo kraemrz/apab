@@ -20,8 +20,11 @@ if IS_TEST:
 else:
     DATABASE_URL = os.getenv("DATABASE_URL")
 
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL saknas i .env-filen.")
+if IS_TEST and not os.getenv("DATABASE_URL_TEST"):
+    raise ValueError("TEST_ENV=1 men DATABASE_URL_TEST saknas")
+
+if not IS_TEST and not os.getenv("DATABASE_URL"):
+    raise ValueError("TEST_ENV=0 men DATABASE_URL saknas")
 
 # -------------------------------------------------------
 # MINIO CONFIG

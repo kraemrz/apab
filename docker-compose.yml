@@ -13,7 +13,7 @@ services:
     volumes:
       - db-prod-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_PROD_USER}"]
+      test: ["CMD-SHELL", "pg_isready -d ${DB_PROD_NAME} -U ${DB_PROD_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -31,7 +31,7 @@ services:
     volumes:
       - db-test-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_PROD_USER}"]
+      test: ["CMD-SHELL", "pg_isready -d ${DB_TEST_NAME} -U ${DB_TEST_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
