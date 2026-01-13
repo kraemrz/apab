@@ -59,7 +59,8 @@ db = PostgresqlDatabase(
 
 class Inspection(Model):
     customer = CharField()
-    machine = CharField()
+    machine_name = CharField(null=True)
+    machine_number = CharField()
     inspection_date = DateField()
     inspector = CharField(null=True) 
     notes = TextField(null=True)
@@ -87,9 +88,9 @@ class ServiceReport(Model):
 
 class InspectionHistory(Model):
     customer = CharField()
-    machine = CharField()
+    machine_name = CharField(null=True)
+    machine_number = CharField()
     inspection_date = DateField()
-
     json_path = TextField()
     docx_path = TextField(null=True)
 
@@ -99,20 +100,21 @@ class InspectionHistory(Model):
         database = db
         table_name = "inspection_history"
         indexes = (
-        (("customer",), False),
-        (("machine",), False),
-        (("inspection_date",), False),
-        (("customer", "machine", "inspection_date"), True),
+            (("customer",), False),
+            (("machine_number",), False),
+            (("inspection_date",), False),
+            (("customer", "machine_number", "inspection_date"), True),
         )
 
 
-def get_last_inspection(customer, machine):
+
+def get_last_inspection(customer, machine_number):
     record = (
         Inspection
         .select()
         .where(
             (Inspection.customer == customer) &
-            (Inspection.machine == machine)
+            (Inspection.machine_number == machine_number)
         )
         .order_by(Inspection.inspection_date.desc())
         .first()
@@ -120,12 +122,12 @@ def get_last_inspection(customer, machine):
     return record.inspection_date if record else None
 
 
-def get_service_reports_between(machine, start_date, end_date):
+def get_service_reports_between(machine_number, start_date, end_date):
     query = (
         ServiceReport
         .select()
         .where(
-            (ServiceReport.machine_number == machine) &
+            (ServiceReport.machine_number == machine_number) &
             (ServiceReport.service_date >= start_date) &
             (ServiceReport.service_date <= end_date)
         )
@@ -136,7 +138,7 @@ def get_service_reports_between(machine, start_date, end_date):
         {
             "id": r.id,
             "customer": r.customer,
-            "machine": r.machine_number,
+            "machine_number": r.machine_number,
             "service_date": r.service_date.strftime("%Y-%m-%d") if r.service_date else None,
             "filename": r.filename,
             "pdf_path": r.pdf_path
@@ -144,12 +146,12 @@ def get_service_reports_between(machine, start_date, end_date):
         for r in query
     ]
 
-def get_nearest_service_report(machine, inspection_date):
+def get_nearest_service_report(machine_number, inspection_date):
     return (
         ServiceReport
         .select()
         .where(
-            (ServiceReport.machine_number == machine) &
+            (ServiceReport.machine_number == machine_number) &
             (ServiceReport.service_date <= inspection_date)
         )
         .order_by(ServiceReport.service_date.desc())
@@ -166,12 +168,13 @@ def save_service_report(customer, machine_number, service_date, filename, pdf_pa
     )
     return report.id
 
-def add_inspection(customer, machine, inspection_date, inspector=None, notes=None, comments=None):
+def add_inspection(customer, machine_name, machine_number, inspection_date, inspector=None, notes=None, comments=None):
     with db.atomic() as transaction:
         try:
             new_inspection = Inspection.create(
                 customer=customer,
-                machine=machine,
+                machine_name=machine_name,
+                machine_number=machine_number,
                 inspection_date=inspection_date,
                 inspector=inspector,
                 notes=notes
@@ -184,16 +187,16 @@ def add_inspection(customer, machine, inspection_date, inspector=None, notes=Non
                         action_text=comment_data['action'], # <-- Spara den nya datan
                         comment_text=comment_data['comment']
                     )
-            print(f"Sparade inspektion för {machine} med {len(comments or [])} kommentar(er).")
+            print(f"Sparade inspektion för {machine_number} med {len(comments or [])} kommentar(er).")
         except Exception as e:
             print(f"Transaktionen misslyckades: {e}")
             transaction.rollback()
 
-def get_history_for_machine(machine):
+def get_history_for_machine(machine_number):
     query = (InspectionComment
              .select(InspectionComment.station_name, InspectionComment.action_text, InspectionComment.comment_text, Inspection.inspection_date)
              .join(Inspection)
-             .where(Inspection.machine == machine)
+             .where(Inspection.machine_number == machine_number)
              .order_by(Inspection.inspection_date.desc()))
 
     history_map = defaultdict(list)
@@ -219,7 +222,7 @@ def list_inspection_history(
         query = query.where(InspectionHistory.customer.ilike(f"%{customer}%"))
 
     if machine:
-        query = query.where(InspectionHistory.machine.ilike(f"%{machine}%"))
+        query = query.where(InspectionHistory.machine_number.ilike(f"%{machine}%"))
 
     if date_from:
         query = query.where(InspectionHistory.inspection_date >= date_from)
@@ -227,24 +230,77 @@ def list_inspection_history(
     if date_to:
         query = query.where(InspectionHistory.inspection_date <= date_to)
 
-    query = query.order_by(InspectionHistory.inspection_date.desc())
+    # 🔽 Viktigt: sortera per maskin + datum (nyast först)
+    rows = list(
+        query.order_by(
+            InspectionHistory.machine_number,
+            InspectionHistory.inspection_date.desc()
+        )
+    )
 
-    return [
-        {
-            "id": row.id,
-            "customer": row.customer,
-            "machine": row.machine,
-            "inspection_date": row.inspection_date.isoformat(),
-            "json_path": row.json_path,
-            "docx_path": row.docx_path,
-            "created_at": row.created_at.isoformat(),
-        }
-        for row in query
-    ]
+    # --- gruppera inspektioner per maskin ---
+    by_machine = defaultdict(list)
+    for row in rows:
+        by_machine[row.machine_number].append(row)
+
+    results = []
+
+    for machine_number, inspections in by_machine.items():
+        # hämta ALLA rapporter för maskinen (ASC)
+        reports = get_all_service_reports_for_machine(machine_number)
+
+        for idx, ins in enumerate(inspections):
+            start_date = ins.inspection_date
+
+            # nästa inspektion (äldre)
+            end_date = (
+                inspections[idx + 1].inspection_date
+                if idx + 1 < len(inspections)
+                else None
+            )
+
+            filtered_reports = []
+
+            for r in reports:
+                r_date = date.fromisoformat(r["service_date"])
+
+                # före inspektionen → ignorera
+                if r_date < start_date:
+                    continue
+
+                # efter nästa inspektion → ignorera
+                if end_date and r_date >= end_date:
+                    continue
+
+                filtered_reports.append(r)
+
+            results.append({
+                "id": ins.id,
+                "customer": ins.customer,
+                "machine_name": ins.machine_name,
+                "machine_number": ins.machine_number,
+                "machine_display": (
+                    f"{ins.machine_name} ({ins.machine_number})"
+                    if ins.machine_name else ins.machine_number
+                ),
+                "inspection_date": ins.inspection_date.isoformat(),
+                "json_path": ins.json_path,
+                "docx_path": ins.docx_path,
+                "created_at": ins.created_at.isoformat(),
+
+                # ✅ rätt PDF:er per inspektion
+                "pdf_reports": filtered_reports
+            })
+
+    # 🔽 slutlig sortering (nyast inspektion överst i UI)
+    results.sort(key=lambda r: r["inspection_date"], reverse=True)
+
+    return results
 
 def upsert_inspection_history(
     customer: str,
-    machine: str,
+    machine_name: str,
+    machine_number: str,
     inspection_date: date,
     json_path: str,
 ):
@@ -253,7 +309,8 @@ def upsert_inspection_history(
         .select()
         .where(
             (InspectionHistory.customer == customer) &
-            (InspectionHistory.machine == machine) &
+            (InspectionHistory.machine_name == machine_name) &
+            (InspectionHistory.machine_number == machine_number) &
             (InspectionHistory.inspection_date == inspection_date)
         )
         .first()
@@ -266,8 +323,30 @@ def upsert_inspection_history(
     else:
         new = InspectionHistory.create(
             customer=customer,
-            machine=machine,
+            machine_name=machine_name,
+            machine_number=machine_number,
             inspection_date=inspection_date,
             json_path=json_path,
         )
         return new.id
+
+def get_all_service_reports_for_machine(machine_number):
+    query = (
+        ServiceReport
+        .select()
+        .where(ServiceReport.machine_number == machine_number)
+        .order_by(ServiceReport.created_date.asc())
+    )
+
+    return [
+        {
+            "id": r.id,
+            "service_date": (
+                r.service_date.isoformat()
+                if r.service_date else r.created_date.date().isoformat()
+            ),
+            "filename": r.filename,
+            "pdf_path": r.pdf_path,
+        }
+        for r in query
+    ]

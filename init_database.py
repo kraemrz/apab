@@ -1,5 +1,5 @@
 from peewee import *
-from database import db, Inspection, InspectionComment, ServiceReport
+from database import db, Inspection, InspectionComment, ServiceReport, InspectionHistory
 
 class SchemaVersion(Model):
     version = IntegerField()
@@ -21,7 +21,8 @@ def init_db_if_needed():
         db.create_tables([
             Inspection,
             InspectionComment,
-            ServiceReport
+            ServiceReport, 
+            InspectionHistory,
         ])
 
         if row:

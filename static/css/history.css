@@ -25,3 +25,43 @@
   font-style: italic;
   color: #666;
 }
+
+#historyTableBody tr {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+#historyTableBody tr:hover {
+  background: rgba(0,0,0,0.05);
+}
+
+body.dark-mode #historyTableBody tr:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.status {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.status.ok {
+  color: #16a34a; /* grön */
+  text-decoration: none;
+}
+
+.status.missing {
+  color: #9ca3af; /* grå */
+}
+
+.pdf-item {
+  line-height: 1.4;
+}
+
+.pdf-item a {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.pdf-item a:hover {
+  text-decoration: underline;
+}

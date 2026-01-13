@@ -40,36 +40,53 @@ async function loadCustomer(customer) {
   const container = document.getElementById("customerDetails");
   container.innerHTML = "";
 
+  if (!data.machines || data.machines.length === 0) {
+    container.innerHTML = "<p>Inga maskiner hittades.</p>";
+    return;
+  }
+
   data.machines.forEach(m => {
-    container.innerHTML += `
-      <div class="machine-block">
-        <h4>Maskin ${m.machine}</h4>
+    const block = document.createElement("div");
+    block.className = "machine-block";
 
-        <strong>Inspektioner</strong>
-        <ul>
-          ${m.inspections.map(i => `
-            <li>
-              ${i.date}
-              <button onclick="openInspection('${i.json_path}')">Öppna</button>
-            </li>
-          `).join("") || "<li>Inga inspektioner</li>"}
-        </ul>
+    block.innerHTML = `
+      <h4>Maskin ${m.machine || "Okänd maskin"}</h4>
 
-        <strong>Servicerapporter</strong>
-        <ul>
-          ${m.service_reports.map(r => `
-            <li>
-              ${r.date}
-              <a href="/download_report?path=${encodeURIComponent(r.pdf_path)}" target="_blank">
-                📄 ${r.filename}
-              </a>
-            </li>
-          `).join("") || "<li>Inga servicerapporter</li>"}
-        </ul>
-      </div>
+      <strong>Inspektioner</strong>
+      <ul>
+        ${
+          m.inspections.length
+            ? m.inspections.map(i => `
+                <li>
+                  ${i.date}
+                  <button onclick="openInspection('${i.json_path}')">Öppna</button>
+                </li>
+              `).join("")
+            : "<li>Inga inspektioner</li>"
+        }
+      </ul>
+
+      <strong>Servicerapporter</strong>
+      <ul>
+        ${
+          m.service_reports.length
+            ? m.service_reports.map(r => `
+                <li>
+                  ${r.date}
+                  <a href="/download_report?path=${encodeURIComponent(r.pdf_path)}" target="_blank">
+                    📄 ${r.filename}
+                  </a>
+                </li>
+              `).join("")
+            : "<li>Inga servicerapporter</li>"
+        }
+      </ul>
     `;
+
+    container.appendChild(block);
   });
 }
+
 
 /* =========================
    Öppna inspection (read-only)

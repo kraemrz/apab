@@ -34,7 +34,7 @@ async function loadInspection() {
 
 function renderInspection(data) {
   container.innerHTML = `
-    <h2>${data.customer} – ${data.machine}</h2>
+    <h2>${data.customer} – ${data.machine_display}</h2>
     <p><strong>Datum:</strong> ${data.inspection_date}</p>
 
     ${renderStations(data.comments)}

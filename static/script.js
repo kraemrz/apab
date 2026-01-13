@@ -41,7 +41,7 @@ function renderServiceReports(reports, machineNo) {
 
     if (!reports || reports.length === 0) {
         console.group("Service report lookup");
-        console.log("Maskin:", machineNo);
+        console.log("Maskin:", machineNo || "❓Okänd");
         console.log("Reports:", reports);
         console.groupEnd();
         return;
@@ -126,7 +126,9 @@ document.addEventListener("DOMContentLoaded", function () {
     let comments         = [];
     let currentLang      = "sv";
     let currentCustomer  = "Okänd Kund";
-    let currentMachine   = "Okänd Maskin";
+    let currentMachineName = null;
+    let currentMachineNo   = null;
+    let originalUploadedFilename = null;
 
     // --- ONLINE / OFFLINE LOGIK ---
     let saveWordButton = exportForm.querySelector('button[type="submit"]#saveWordSubmitButton');
@@ -283,46 +285,56 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // --- MAIN: DOCX-UPPLADDNING ---
     function handleFileUpload(file) {
-    const formData = new FormData();
-    formData.append("file", file);
-    resultDiv.innerHTML = '🔄 Läser in och analyserar dokumentet...';
+        originalUploadedFilename = file.name;
+        const formData = new FormData(exportForm);
+        formData.append("machine_name", currentMachineName || "");
+        formData.append("machine_number", currentMachineNo || "");
+        formData.append("file", file);
+    
+        resultDiv.innerHTML = '🔄 Läser in och analyserar dokumentet...';
 
-    fetch("/upload", { method: "POST", body: formData })
-        .then(r => r.json())
-        .then(data => {
-            if (data.error) {
-                resultDiv.innerHTML = `❌ Fel vid inläsning: ${data.error}`;
-                currentAutosaveFileHandle = null;
-                currentAutosaveFilename   = '';
-                return;
-            }
-
-            historicalData         = data.history || {};
-            resultDiv.dataset.lang = data.lang;
-
-            // 🔥 Bygger tabeller & historik
-            displayContent(data.blocks);
-
-            currentLang     = data.lang;
-            currentCustomer = data.customer;
-            currentMachine  = data.machine;
-
-            langInput.value     = currentLang;
-            customerInput.value = currentCustomer;
-            machineInput.value  = currentMachine;
-
-            renderServiceReports(data.service_reports, currentMachine);
-
-
-            exportControls.style.display = "flex";
-                })
-                .catch(err => {
-                    console.error(err);
-                    resultDiv.innerHTML = '❌ Ett fel uppstod vid kommunikation med servern.';
+        fetch("/upload", { method: "POST", body: formData })
+            .then(r => r.json())
+            .then(data => {
+                console.log("UPLOAD RESPONSE:", data);
+                if (data.error) {
+                    resultDiv.innerHTML = `❌ Fel vid inläsning: ${data.error}`;
                     currentAutosaveFileHandle = null;
                     currentAutosaveFilename   = '';
-                });
-            }
+                    return;
+                }
+
+                historicalData         = data.history || {};
+                resultDiv.dataset.lang = data.lang;
+
+                // 🔥 Bygger tabeller & historik
+                displayContent(data.blocks);
+
+                currentLang     = data.lang;
+                currentCustomer = data.customer;
+                currentMachineName  = data.machine_name;
+                currentMachineNo    = data.machine_number;
+
+                langInput.value     = currentLang;
+                customerInput.value = currentCustomer;
+                machineInput.value = currentMachineName
+                    ? `${currentMachineName} (${currentMachineNo})`
+                    : currentMachineNo || "Okänd Maskin";
+
+
+                renderServiceReports(data.service_reports, currentMachineNo);
+
+
+                exportControls.style.display = "flex";
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        resultDiv.innerHTML = '❌ Ett fel uppstod vid kommunikation med servern.';
+                        currentAutosaveFileHandle = null;
+                        currentAutosaveFilename   = '';
+                    });
+                
+        }
 
 
 
@@ -342,13 +354,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 currentLang     = jsonData.lang || 'sv';
                 currentCustomer = jsonData.customer || 'Okänd Kund';
-                currentMachine  = jsonData.machine || 'Okänd Maskin';
+                currentMachineName = jsonData.machine_name || null;
+                currentMachineNo   = jsonData.machine_number || null;
                 comments        = jsonData.comments || [];
                 historicalData  = jsonData.historicalData || {};
 
                 langInput.value     = currentLang;
                 customerInput.value = currentCustomer;
-                machineInput.value  = currentMachine;
+                machineInput.value = jsonData.machine_display
+                        || (currentMachineName
+                            ? `${currentMachineName} (${currentMachineNo})`
+                            : currentMachineNo
+                        );
 
                 const inspectionDateField = document.getElementById('inspection-date-field');
                 if (inspectionDateField) {
@@ -523,12 +540,17 @@ document.addEventListener("DOMContentLoaded", function () {
             html: rawHtmlContent,
             lang: currentLang,
             customer: currentCustomer,
-            machine: currentMachine,
+            machine_name: currentMachineName,
+            machine_number: currentMachineNo,
+            machine_display: currentMachineName && currentMachineNo
+                ? `${currentMachineName} (${currentMachineNo})`
+                : currentMachineNo || "Okänd Maskin",
             inspectionDate: inspectionDate,
             signature: signature,
             comments: commentsData,
             historicalData: historicalData
         };
+
     }
 
     function normalizeComment(commentText) {
@@ -721,16 +743,24 @@ document.addEventListener("DOMContentLoaded", function () {
         inspectionDateInp.value = exportData.inspectionDate;
         langInput.value         = currentLang;
         customerInput.value     = currentCustomer;
-        machineInput.value      = currentMachine;
 
         const signatureInputHidden = document.getElementById('signatureInput');
+        const formData = new FormData(exportForm);
+
+        // ✅ KRITISKT: backend jobbar på dessa
+        formData.append("machine_name", currentMachineName || "");
+        formData.append("machine_number", currentMachineNo || "");
+
+
+
         if (signatureInputHidden) {
             signatureInputHidden.value = exportData.signature;
         } else {
             console.warn("Dolt fält med ID 'signatureInput' saknas i HTML. Signaturen kommer inte skickas till servern.");
         }
-
-        const formData = new FormData(exportForm);
+        if (originalUploadedFilename) {
+            formData.append("original_filename", originalUploadedFilename);
+        }
 
         fetch(exportForm.action, {
             method: "POST",
@@ -775,9 +805,12 @@ document.addEventListener("DOMContentLoaded", function () {
             const allData = collectAllDataForJSON();
 
             const customerNamePart = allData.customer.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
-            const machineNamePart  = allData.machine.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
+            const machinePart = allData.machine_display
+                .replace(/[^a-zA-Z0-9]/g, '_')
+                .substring(0, 20);
+
             const datePart         = allData.inspectionDate || new Date().toISOString().slice(0, 10);
-            const baseFilename     = `temporar_arbetsfil_${customerNamePart}_${machineNamePart}_${datePart}.json`;
+            const baseFilename     = `temporar_arbetsfil_${customerNamePart}_${machinePart}_${datePart}.json`;
 
             const dataStr = JSON.stringify(allData, null, 2);
             const blob    = new Blob([dataStr], { type: 'application/json' });

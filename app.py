@@ -67,19 +67,60 @@ TRANSLATIONS = {
 def parse_filename_for_info(filename, lang):
     try:
         prefix = TRANSLATIONS[lang]['report_title']
-        clean_name = filename.lower().replace('.docx', '').replace('_mall', '')
-        if clean_name.startswith(prefix.lower()):
-            clean_name = clean_name[len(prefix):].strip()
-        
-        match = re.search(r'(m\d{6})', clean_name)
-        if match:
-            machine = match.group(1).upper()
-            customer_raw = clean_name[:match.start()]
-            customer = customer_raw.replace('_', ' ').replace('-', ' ').strip().title()
-            return customer if customer else "Okänd Kund", machine
+
+        clean = (
+            filename
+            .replace(".docx", "")
+            .replace("_MALL", "")
+            .replace("_mall", "")
+            .strip()
+        )
+
+        # Ta bort rapporttitel i början
+        if clean.lower().startswith(prefix.lower()):
+            clean = clean[len(prefix):].strip()
+
+        # --- Försök 1: Kund + Maskinnamn + M-nummer ---
+        # Abbott Mellitus-M100091
+        m = re.search(
+            r'^(?P<customer>.+?)\s+(?P<machine_name>[A-Za-zÅÄÖåäö0-9\- ]+?)[\s\-–]*\(?'
+            r'(?P<machine_no>M\d{6})\)?',
+            clean,
+            re.IGNORECASE
+        )
+
+        if m:
+            return (
+                m.group("customer").strip().title(),
+                m.group("machine_name").strip().title(),
+                m.group("machine_no").upper()
+            )
+
+        # --- Försök 2: Kund + endast M-nummer ---
+        # Nolato M100025
+        m = re.search(
+            r'^(?P<customer>.+?)\s+(?P<machine_no>M\d{6})',
+            clean,
+            re.IGNORECASE
+        )
+
+        if m:
+            return (
+                m.group("customer").strip().title(),
+                None,
+                m.group("machine_no").upper()
+            )
+
+        # --- Försök 3: Endast M-nummer ---
+        m = re.search(r'\b(M\d{6})\b', clean, re.IGNORECASE)
+        if m:
+            return "Okänd Kund", None, m.group(1).upper()
+
     except Exception as e:
-        print(f"Error parsing filename: {e}")
-    return "Okänd Kund", "Okänd Maskin"
+        print("Filename parse error:", e)
+
+    return "Okänd Kund", None, None
+
 
 def set_cell_shade(cell, shade):
     tcPr = cell._tc.get_or_add_tcPr()
@@ -121,44 +162,19 @@ def history_page():
 def inspection_history():
     customer = request.args.get("customer")
     machine = request.args.get("machine")
+
     from_date = request.args.get("from")
     to_date = request.args.get("to")
 
-    query = InspectionHistory.select()
+    from_date = date.fromisoformat(from_date) if from_date else None
+    to_date = date.fromisoformat(to_date) if to_date else None
 
-    if customer:
-        query = query.where(InspectionHistory.customer.ilike(f"%{customer}%"))
-    if machine:
-        query = query.where(InspectionHistory.machine.ilike(f"%{machine}%"))
-    if from_date:
-        query = query.where(InspectionHistory.inspection_date >= from_date)
-    if to_date:
-        query = query.where(InspectionHistory.inspection_date <= to_date)
-
-    results = []
-
-    for row in query.order_by(InspectionHistory.inspection_date.desc()):
-        # hämta service reports för samma maskin
-        nearest_pdf = get_nearest_service_report(
-            row.machine,
-            row.inspection_date
-        )
-
-
-        results.append({
-            "customer": row.customer,
-            "machine": row.machine,
-            "inspection_date": row.inspection_date.isoformat(),
-            "json_path": row.json_path,
-            "docx_path": row.docx_path,
-
-            "pdf": {
-                "filename": nearest_pdf.filename,
-                "pdf_path": nearest_pdf.pdf_path,
-                "service_date": nearest_pdf.service_date.isoformat()
-            } if nearest_pdf else None
-        })
-
+    results = list_inspection_history(
+        customer=customer,
+        machine=machine,
+        date_from=from_date,
+        date_to=to_date,
+    )
 
     return jsonify(results)
 
@@ -198,11 +214,11 @@ def backlog_customers():
     # --- Inspektioner ---
     inspections = (
         InspectionHistory
-        .select(InspectionHistory.customer, InspectionHistory.machine)
+        .select(InspectionHistory.customer, InspectionHistory.machine_number)
     )
 
     for row in inspections:
-        customers[row.customer].add(row.machine)
+        customers[row.customer].add(row.machine_number)
 
     # --- Service rapporter ---
     services = (
@@ -240,7 +256,7 @@ def backlog_customer(customer):
     )
 
     for ins in inspections:
-        machine = ins.machine
+        machine = ins.machine_number
         result.setdefault(machine, {
             "machine": machine,
             "inspections": [],
@@ -293,16 +309,17 @@ def upload_file():
     file = request.files['file']
     if not file.filename: return jsonify({"error": "No selected file"}), 400
 
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    original_filename = file.filename
+    safe_filename = secure_filename(original_filename)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], safe_filename)
     file.save(filepath)
 
     try:
         doc = Document(filepath)
         detected_lang = detect_language_from_doc(doc)
-        customer, machine = parse_filename_for_info(filename, detected_lang)
+        customer, machine_name, machine_number = parse_filename_for_info(original_filename, detected_lang)
 
-        history_data = get_history_for_machine(machine)
+        history_data = get_history_for_machine(machine_number)
         
         blocks = []
         content_started = False
@@ -328,7 +345,7 @@ def upload_file():
                 blocks.append({"type": "table", "data": table_data})
 
         # Hämta senaste inspektion för maskinen
-        last_inspection = get_last_inspection(customer, machine)
+        last_inspection = get_last_inspection(customer, machine_number)
 
         # Idag
         today = date.today()
@@ -336,7 +353,7 @@ def upload_file():
         # Sök servicerapporter
         service_reports = []
         if last_inspection:
-            service_reports = get_service_reports_between(machine, last_inspection, today)
+            service_reports = get_service_reports_between(machine_number, last_inspection, today)
         
         for r in service_reports:
             r["url"] = f"/download_report?path={r['pdf_path']}"
@@ -345,7 +362,9 @@ def upload_file():
             "blocks": blocks,
             "lang": detected_lang,
             "customer": customer,
-            "machine": machine,
+            "machine_name": machine_name,
+            "machine_number": machine_number,
+            "machine_display": f"{machine_name} ({machine_number})" if machine_name else "Okänd Maskin",
             "history": history_data,
             "service_reports": service_reports
         })
@@ -465,7 +484,9 @@ def export_to_word():
     html_content = request.form.get("html", "")
     inspection_date = request.form.get('inspection_date', datetime.now().strftime('%Y-%m-%d'))
     customer = request.form.get('customer', 'Okänd Kund')
-    machine = request.form.get('machine', 'Okänd Maskin')
+    machine_name   = request.form.get("machine_name")
+    machine_number = request.form.get("machine_number")
+    machine_display = f"{machine_name} ({machine_number})"
     signature = request.form.get('signature', '') # <-- NY KOD: Hämta signaturen
 
     comments_json = request.form.get('comments_json', '[]')
@@ -488,7 +509,7 @@ def export_to_word():
     cell_label_c = info_table.cell(0, 0).paragraphs[0]; cell_label_c.add_run('Kund:').bold = True; cell_label_c.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     info_table.cell(0, 1).text = customer
     cell_label_m = info_table.cell(1, 0).paragraphs[0]; cell_label_m.add_run('Maskin:').bold = True; cell_label_m.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    info_table.cell(1, 1).text = machine
+    info_table.cell(1, 1).text = machine_display
     cell_label_d = info_table.cell(2, 0).paragraphs[0]; cell_label_d.add_run('Inspektionsdatum:').bold = True; cell_label_d.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     info_table.cell(2, 1).text = inspection_date
     
@@ -571,22 +592,53 @@ def export_to_word():
                     document.add_paragraph()
                 except IndexError: print("Skipping malformed table.")
 
+    # 🧠 Fallback: försök tolka från originalfilnamn om kund/maskin är okända
+    original_filename = request.form.get("original_filename")
+
+    if original_filename and (
+            customer == "Okänd Kund" or not machine_number
+        ):
+            parsed_customer, parsed_machine_name, parsed_machine_number = parse_filename_for_info(
+                original_filename,
+                lang
+            )
+
+            if customer == "Okänd Kund" and parsed_customer != "Okänd Kund":
+                customer = parsed_customer
+
+            if machine_number is None and parsed_machine_number:
+                machine_name = parsed_machine_name
+                machine_number = parsed_machine_number
+
+    if not machine_number:
+        print("❌ EXPORT STOPPAD: machine_number saknas")
+        return jsonify({
+            "error": "machine_number saknas vid export",
+            "debug": {
+                "customer": customer,
+                "machine_name": machine_name,
+                "machine_number": machine_number,
+                "original_filename": original_filename
+            }
+        }), 400
     
     doc_io = BytesIO()
     document.save(doc_io)
     doc_io.seek(0)
     
     filename_prefix = TRANSLATIONS[lang]['report_title']
-    download_name = f"{filename_prefix}_{customer.replace(' ', '_')}_{machine.replace(' ', '_')}_{inspection_date}.docx"
+    
+    download_name = f"{filename_prefix}_{customer.replace(' ', '_')}_{machine_number.replace(' ', '_')}_{inspection_date}.docx"
     
     try:
         add_inspection(
             customer=customer, 
-            machine=machine, 
+            machine_name=machine_name,
+            machine_number=machine_number, 
             inspection_date=inspection_date,
             comments=comments_data
             )
-        print(f"INFO: Inspection added for {customer} - {machine} on {inspection_date}")
+        print(f"INFO: Inspection added for {customer} - {machine_number} on {inspection_date}")
     except Exception as e:
         print(f"Error saving inspection: {e}")
 
@@ -594,7 +646,8 @@ def export_to_word():
         "type": "inspection",
         "version": 1,
         "customer": customer,
-        "machine": machine,
+        "machine_name": machine_name,
+        "machine_number": machine_number,
         "inspection_date": inspection_date,
         "lang": lang,
         "signature": signature,
@@ -603,7 +656,7 @@ def export_to_word():
     }
     inspection_path = build_inspection_path(
         customer=customer,
-        machine=machine,
+        machine_number=machine_number,
         inspection_date=inspection_date
     )
 
@@ -611,7 +664,8 @@ def export_to_word():
 
     upsert_inspection_history(
         customer=customer,
-        machine=machine,
+        machine_name=machine_name,
+        machine_number=machine_number,
         inspection_date=inspection_date,
         json_path=inspection_path,
     )

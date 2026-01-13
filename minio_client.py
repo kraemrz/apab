@@ -72,10 +72,12 @@ def delete_report(object_path: str) -> bool:
         print("Error deleting report from MinIO:", e)
         return False
 
-def build_inspection_path(customer, machine, inspection_date):
+def build_inspection_path(customer: str, machine_number: str, inspection_date: str):
     safe_customer = customer.replace(" ", "_")
-    safe_machine = machine.replace(" ", "_")
+    safe_machine  = machine_number.replace(" ", "_")
+
     return f"{safe_customer}/{safe_machine}/{inspection_date}_inspection.json"
+
 
 def minio_upload_json(object_path: str, data: dict):
     json_bytes = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
