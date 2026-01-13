@@ -25,7 +25,8 @@ from database import (
     upsert_inspection_history, 
     InspectionHistory, 
     get_nearest_service_report,
-    ServiceReport
+    ServiceReport,
+    Inspection
 )
 import json
 from minio_client import (
@@ -302,6 +303,23 @@ def backlog_customer(customer):
 @app.route('/service_report')
 def service_report():
     return render_template('service_report.html')
+
+@app.route("/api/machines")
+def list_machines():
+    rows = (
+        Inspection
+        .select(Inspection.machine_number, Inspection.customer)
+        .distinct()
+        .order_by(Inspection.machine_number)
+    )
+
+    return jsonify([
+        {
+            "machine_number": r.machine_number,
+            "customer": r.customer
+        }
+        for r in rows
+    ])
 
 @app.route('/upload', methods=['POST'])
 def upload_file():

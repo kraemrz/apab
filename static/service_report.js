@@ -133,6 +133,58 @@ function setLanguage(lang) {
   }
 }
 
+function setTodayIfEmpty() {
+  const el = document.getElementById("serviceDate");
+  if (!el.value) {
+    el.value = new Date().toISOString().slice(0, 10);
+  }
+}
+
+//=============================================================
+// MASKINER & KUNDER – AUTOCOMPLETE
+//=============================================================
+let MACHINE_MAP = new Map();
+
+async function loadMachinePresets() {
+  try {
+    const res = await fetch("/api/machines");
+    if (!res.ok) throw new Error("Failed to fetch machines");
+
+    const data = await res.json();
+
+    const machineList = document.getElementById("machineList");
+    const customerList = document.getElementById("customerList");
+
+    machineList.innerHTML = "";
+    customerList.innerHTML = "";
+
+    MACHINE_MAP.clear();
+    const customers = new Set();
+
+    data.forEach(row => {
+      MACHINE_MAP.set(row.machine_number, row.customer);
+
+      const opt = document.createElement("option");
+      opt.value = row.machine_number;
+      machineList.appendChild(opt);
+
+      if (row.customer) customers.add(row.customer);
+    });
+
+    customers.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c;
+      customerList.appendChild(opt);
+    });
+
+  } catch (err) {
+    console.error("Error loading machine presets:", err);
+  }
+}
+
+
+
+
 function toggleLanguage() {
   const newLang = window.currentLang === "sv" ? "en" : "sv";
   setLanguage(newLang);
@@ -185,22 +237,6 @@ function getFormData() {
     spareParts,
   };
 }
-
-// ===========================================================
-// MASKINNUMMER – AUTOFORMATTERING
-// ===========================================================
-const machineInput = document.getElementById("machineNo");
-
-machineInput.addEventListener("input", () => {
-    let value = machineInput.value.toUpperCase();
-
-    // Ta bort allt som inte är siffror
-    value = value.replace(/[^0-9]/g, "");
-
-    // Lägg alltid till M först
-    machineInput.value = value ? `M${value}` : "M";
-});
-
 
 // ============================================================
 // HJÄLPFUNKTIONER
@@ -521,12 +557,39 @@ function setupSparePartsAutoRow() {
 let logoBase64 = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
+  await loadMachinePresets();
+
   // Ladda logga
   logoBase64 = await loadImageAsBase64("/static/images/apab_logo_512.png");
 
   // Språk & reservdelstabell
   setLanguage("sv");
+  setTodayIfEmpty();
   setupSparePartsAutoRow();
+
+  // ===========================================================
+  // MASKINNUMMER – AUTOFORMATTERING
+  // ===========================================================
+  const machineInput = document.getElementById("machineNo");
+  const customerInput = document.getElementById("customer");
+
+  machineInput.addEventListener("input", () => {
+    const raw = machineInput.value.trim();
+
+    // ✅ Preset-maskin → autofyll + lås kund
+    if (MACHINE_MAP.has(raw)) {
+      customerInput.value = MACHINE_MAP.get(raw);
+      customerInput.readOnly = true;
+      return;
+    }
+
+    // 🔓 Manuell maskin → lås upp kund
+    customerInput.readOnly = false;
+
+    // 🔢 Formattera maskinnummer till M1234
+    const digits = raw.replace(/[^0-9]/g, "");
+    machineInput.value = digits ? `M${digits}` : "M";
+  });
 
   // Gråa ut reservdelar när "No spare parts..." är ikryssad
   const check = document.getElementById("noSpareParts");

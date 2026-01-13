@@ -788,3 +788,12 @@ body.dark-mode .lang-switch button:hover {
 body.dark-mode .spare-parts.disabled tbody#sparePartsBody {
     opacity: 0.45;
 }
+
+input[type="date"].auto-set {
+  color: #555;
+}
+
+input[readonly] {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
