@@ -3,6 +3,7 @@ const JSON_PATH = params.get("path");
 
 const container = document.getElementById("inspectionContainer");
 
+
 if (!JSON_PATH) {
   container.innerHTML = "<p>Ingen inspektionsfil angiven</p>";
   throw new Error("Missing path parameter");
@@ -33,13 +34,20 @@ async function loadInspection() {
 
 
 function renderInspection(data) {
+
+  const machineDisplay =
+    data.machine_name
+      ? `${data.machine_name} (${data.machine_number})`
+      : data.machine_number;
+
   container.innerHTML = `
-    <h2>${data.customer} – ${data.machine_display}</h2>
+    <h2>${data.customer} – ${machineDisplay}</h2>
     <p><strong>Datum:</strong> ${data.inspection_date}</p>
 
     ${renderStations(data.comments)}
   `;
 }
+
 
 function renderStations(comments) {
   const grouped = {};

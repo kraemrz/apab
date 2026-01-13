@@ -72,13 +72,6 @@ function renderTable(rows) {
       <td>${row.machine_display}</td>
       <td>${inspectionCell}</td>
       <td>${pdfCell}</td>
-      <td>
-        <button class="open-btn"
-                data-path="${row.json_path}"
-                onclick="event.stopPropagation()">
-          Öppna
-        </button>
-      </td>
     `;
 
     /* Klickbar rad → öppna inspection */
