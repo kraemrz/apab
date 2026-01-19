@@ -1,5 +1,3 @@
-// static/script.js – Inspection Editor med historik + autosave
-
 // --- Hjälpfunktioner (globalt) ---
 function debounce(func, delay) {
     let timeout;
@@ -8,6 +6,10 @@ function debounce(func, delay) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(context, args), delay);
     };
+}
+
+function isValidISODate(value) {
+    return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 async function writeDataToFileHandle(fileHandle, blob) {
@@ -106,6 +108,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }*/
 
     // --- REFERENCES ---
+    const isInspectionPage  = !!document.getElementById("exportForm");
+    let checkRealOnlineStatus = () => {};
+    let isActuallyOnline = true;
+    let debouncedAutosave = () => {};
     const dropZone          = document.getElementById("drop-zone");
     const fileInput         = document.getElementById("fileInput");
     const exportForm        = document.getElementById("exportForm");
@@ -131,70 +137,45 @@ document.addEventListener("DOMContentLoaded", function () {
     let originalUploadedFilename = null;
 
     // --- ONLINE / OFFLINE LOGIK ---
-    let saveWordButton = exportForm.querySelector('button[type="submit"]#saveWordSubmitButton');
-    if (!saveWordButton) {
-        console.warn("saveWordButton med ID #saveWordSubmitButton hittades inte, använder första submit-knappen i exportForm.");
-        saveWordButton = exportForm.querySelector('button[type="submit"]');
-    }
+    if (isInspectionPage) {
 
-    const offlineMessageElement = document.createElement('div');
-    offlineMessageElement.id = 'offline-status-message';
-    offlineMessageElement.style.cssText = `
-        background-color: #ffc107;
-        color: #343a40;
-        padding: 8px 15px;
-        border-radius: 5px;
-        margin-top: 10px;
-        display: none;
-        text-align: center;
-        font-weight: bold;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    `;
-    offlineMessageElement.textContent =
-        '❌ Appen är offline. Vissa funktioner (som att spara Word) kräver internetanslutning.';
-    exportControls.appendChild(offlineMessageElement);
+        let saveWordButton = exportForm.querySelector(
+            'button[type="submit"]#saveWordSubmitButton'
+        ) || exportForm.querySelector('button[type="submit"]');
 
-    let isActuallyOnline = navigator.onLine;
+        const offlineMessageElement = document.createElement('div');
+        exportControls.appendChild(offlineMessageElement);
+        offlineMessageElement.textContent ='❌ Appen är offline. Word-export kräver internet.';
+        offlineMessageElement.style.display = 'none';
 
-    async function checkRealOnlineStatus() {
-        if (!navigator.onLine) {
-            isActuallyOnline = false;
-            console.log("checkRealOnlineStatus: navigator.onLine är false.");
-            updateUIBasedOnConnection(false);
-            return;
-        }
+        isActuallyOnline = navigator.onLine;
 
-        console.log("checkRealOnlineStatus: pingar /ping...");
-        try {
-            const response = await fetch('/ping', { method: 'HEAD', cache: 'no-store' });
-            isActuallyOnline = response.ok;
-            console.log(`checkRealOnlineStatus: svar = ${response.status} (${response.ok ? 'OK' : 'Fel'})`);
-        } catch (err) {
-            isActuallyOnline = false;
-            console.error("checkRealOnlineStatus: fel vid ping:", err);
-        }
-        updateUIBasedOnConnection(isActuallyOnline);
-    }
-
-    function updateUIBasedOnConnection(onlineStatus) {
-        if (onlineStatus) {
-            console.log("Appen är online.");
-            if (saveWordButton) {
-                saveWordButton.disabled = false;
-                saveWordButton.style.opacity = '1';
-                saveWordButton.style.cursor = 'pointer';
+        checkRealOnlineStatus = async function () {
+            if (!navigator.onLine) {
+                isActuallyOnline = false;
+                updateUIBasedOnConnection(false);
+                return;
             }
-            offlineMessageElement.style.display = 'none';
-        } else {
-            console.log("Appen är offline.");
-            if (saveWordButton) {
-                saveWordButton.disabled = true;
-                saveWordButton.style.opacity = '0.5';
-                saveWordButton.style.cursor = 'not-allowed';
+
+            try {
+                const response = await fetch('/ping', { method: 'HEAD', cache: 'no-store' });
+                isActuallyOnline = response.ok;
+            } catch {
+                isActuallyOnline = false;
             }
-            offlineMessageElement.style.display = 'block';
+
+            updateUIBasedOnConnection(isActuallyOnline);
+        };
+
+        function updateUIBasedOnConnection(onlineStatus) {
+            if (saveWordButton) {
+                saveWordButton.disabled = !onlineStatus;
+            }
+            offlineMessageElement.style.display = onlineStatus ? 'none' : 'block';
         }
     }
+
+    
 
     window.addEventListener('online', checkRealOnlineStatus);
     window.addEventListener('offline', checkRealOnlineStatus);
@@ -203,9 +184,9 @@ document.addEventListener("DOMContentLoaded", function () {
     // --- AUTOSAVE ---
     let currentAutosaveFileHandle = null;
     let currentAutosaveFilename   = '';
-
-    const debouncedAutosave = debounce(autosaveToJson, 2000);
-
+    if (isInspectionPage) {
+        debouncedAutosave = debounce(autosaveToJson, 2000);
+    }
     async function autosaveToJson() {
         if (!currentAutosaveFileHandle) {
             console.log("Autosave: inget filhandtag, hoppar över.");
@@ -231,47 +212,51 @@ document.addEventListener("DOMContentLoaded", function () {
             currentAutosaveFilename   = '';
         }
     }
+    
 
     // --- EVENT HANDLERS: FIL ---
-    dropZone.addEventListener("click", () => fileInput.click());
+    if (isInspectionPage) {
+        dropZone.addEventListener("click", () => fileInput.click());
+    
+        fileInput.addEventListener("change", (e) => {
+            if (e.target.files.length === 0) return;
+            const file = e.target.files[0];
 
-    fileInput.addEventListener("change", (e) => {
-        if (e.target.files.length === 0) return;
-        const file = e.target.files[0];
+            if (file.name.endsWith(".docx")) {
+                handleFileUpload(file);
+            } else if (file.name.endsWith(".json")) {
+                processJSONFile(file);
+            } else {
+                alert("Endast .docx- och .json-filer är tillåtna!");
+            }
+        
+        });
+    
+        dropZone.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            dropZone.classList.add("dragover");
+        });
 
-        if (file.name.endsWith(".docx")) {
-            handleFileUpload(file);
-        } else if (file.name.endsWith(".json")) {
-            processJSONFile(file);
-        } else {
-            alert("Endast .docx- och .json-filer är tillåtna!");
-        }
-    });
+        dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
 
-    dropZone.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        dropZone.classList.add("dragover");
-    });
+        dropZone.addEventListener("drop", (e) => {
+            e.preventDefault();
+            dropZone.classList.remove("dragover");
 
-    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+            if (e.dataTransfer.files.length === 0) return;
+            const file = e.dataTransfer.files[0];
 
-    dropZone.addEventListener("drop", (e) => {
-        e.preventDefault();
-        dropZone.classList.remove("dragover");
-
-        if (e.dataTransfer.files.length === 0) return;
-        const file = e.dataTransfer.files[0];
-
-        if (file.name.endsWith(".docx")) {
-            handleFileUpload(file);
-        } else if (file.name.endsWith(".json")) {
-            processJSONFile(file);
-        } else {
-            alert("Endast .docx- och .json-filer är tillåtna!");
-        }
-    });
-
+            if (file.name.endsWith(".docx")) {
+                handleFileUpload(file);
+            } else if (file.name.endsWith(".json")) {
+                processJSONFile(file);
+            } else {
+                alert("Endast .docx- och .json-filer är tillåtna!");
+            }
+        });
+    }
     // --- TOGGLE HISTORIK ---
+    if (isInspectionPage) {
     historyToggleBtn.addEventListener("click", () => {
         const isHidden = resultDiv.classList.contains("history-hidden");
         if (isHidden) {
@@ -282,6 +267,7 @@ document.addEventListener("DOMContentLoaded", function () {
             historyToggleBtn.textContent = "📜 Visa historik";
         }
     });
+    }
 
     // --- MAIN: DOCX-UPPLADDNING ---
     function handleFileUpload(file) {
@@ -339,6 +325,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     // --- MAIN: JSON-UPPLADDNING (temporär fil) ---
+    if (isInspectionPage) {
     function processJSONFile(file) {
         resultDiv.innerHTML        = '🔄 Laddar in temporär JSON-fil...';
         exportControls.style.display = 'none';
@@ -399,6 +386,7 @@ document.addEventListener("DOMContentLoaded", function () {
         };
         reader.readAsText(file);
     }
+}
 
     // --- EXPORT: FÖR WORD ---
     function prepareDocumentContentAndCommentsForWordExport(skipPrompt = false) {
@@ -602,7 +590,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                            class="form-control"
                                            id="inspection-date-field"
                                            name="inspection_date_ui"
-                                           value="${tableData[1]?.[0] || ''}">
+                                           value="${isValidISODate(tableData[1]?.[0]) ? tableData[1][0] : ''}">
                                 </td>
                                 <td>
                                     <input type="text"
@@ -727,75 +715,77 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // --- EXPORTFORM SUBMIT ---
-    exportForm.addEventListener("submit", function (e) {
-        e.preventDefault();
+    if (isInspectionPage) {
+        exportForm.addEventListener("submit", function (e) {
+            e.preventDefault();
 
-        if (!isActuallyOnline) {
-            alert("Kan inte spara Word-dokument. Du är offline.");
-            return;
-        }
+            if (!isActuallyOnline) {
+                alert("Kan inte spara Word-dokument. Du är offline.");
+                return;
+            }
 
-        const exportData = prepareDocumentContentAndCommentsForWordExport();
-        if (!exportData) return;
+            const exportData = prepareDocumentContentAndCommentsForWordExport();
+            if (!exportData) return;
 
-        htmlInput.value         = exportData.htmlContent;
-        commentsInput.value     = JSON.stringify(exportData.comments);
-        inspectionDateInp.value = exportData.inspectionDate;
-        langInput.value         = currentLang;
-        customerInput.value     = currentCustomer;
+            htmlInput.value         = exportData.htmlContent;
+            commentsInput.value     = JSON.stringify(exportData.comments);
+            inspectionDateInp.value = exportData.inspectionDate;
+            langInput.value         = currentLang;
+            customerInput.value     = currentCustomer;
 
-        const signatureInputHidden = document.getElementById('signatureInput');
-        const formData = new FormData(exportForm);
+            const signatureInputHidden = document.getElementById('signatureInput');
+            const formData = new FormData(exportForm);
 
-        // ✅ KRITISKT: backend jobbar på dessa
-        formData.append("machine_name", currentMachineName || "");
-        formData.append("machine_number", currentMachineNo || "");
+            // ✅ KRITISKT: backend jobbar på dessa
+            formData.append("machine_name", currentMachineName || "");
+            formData.append("machine_number", currentMachineNo || "");
 
 
 
-        if (signatureInputHidden) {
-            signatureInputHidden.value = exportData.signature;
-        } else {
-            console.warn("Dolt fält med ID 'signatureInput' saknas i HTML. Signaturen kommer inte skickas till servern.");
-        }
-        if (originalUploadedFilename) {
-            formData.append("original_filename", originalUploadedFilename);
-        }
+            if (signatureInputHidden) {
+                signatureInputHidden.value = exportData.signature;
+            } else {
+                console.warn("Dolt fält med ID 'signatureInput' saknas i HTML. Signaturen kommer inte skickas till servern.");
+            }
+            if (originalUploadedFilename) {
+                formData.append("original_filename", originalUploadedFilename);
+            }
 
-        fetch(exportForm.action, {
-            method: "POST",
-            body: formData,
-        })
-            .then(response => {
-                if (!response.ok) throw new Error('Nätverkssvar var inte ok.');
-                const disposition = response.headers.get('Content-Disposition');
-                let filename = 'download.docx';
-                if (disposition && disposition.indexOf('attachment') !== -1) {
-                    const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
-                    const matches = filenameRegex.exec(disposition);
-                    if (matches != null && matches[1]) {
-                        filename = matches[1].replace(/['"]/g, '');
+            fetch(exportForm.action, {
+                method: "POST",
+                body: formData,
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error('Nätverkssvar var inte ok.');
+                    const disposition = response.headers.get('Content-Disposition');
+                    let filename = 'download.docx';
+                    if (disposition && disposition.indexOf('attachment') !== -1) {
+                        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                        const matches = filenameRegex.exec(disposition);
+                        if (matches != null && matches[1]) {
+                            filename = matches[1].replace(/['"]/g, '');
+                        }
                     }
-                }
-                return response.blob().then(blob => ({ blob, filename }));
-            })
-            .then(({ blob, filename }) => {
-                const url = window.URL.createObjectURL(blob);
-                const a   = document.createElement('a');
-                a.style.display = 'none';
-                a.href          = url;
-                a.download      = filename;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                a.remove();
-                setTimeout(() => location.reload(), 500);
-            })
-            .catch(error => {
-                console.error('Fel vid export:', error);
-                alert('Ett fel uppstod vid exporten.');
-            });
-    });
+                    return response.blob().then(blob => ({ blob, filename }));
+                })
+                .then(({ blob, filename }) => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a   = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href          = url;
+                    a.download      = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                    setTimeout(() => location.reload(), 500);
+                })
+                .catch(error => {
+                    console.error('Fel vid export:', error);
+                    alert('Ett fel uppstod vid exporten.');
+                });
+        });
+    }
 
     // --- SPARA TILLFÄLLIGT (JSON + ev. autosave) ---
     if (saveTempButton) {
