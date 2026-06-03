@@ -1,112 +1,31 @@
-
 services:
-  # -------------------------------------------------------
-  # 🟦 PRODUKTIONS-DATABAS
-  # -------------------------------------------------------
-  db-prod:
-    image: postgres:14-alpine
-    restart: always
-    environment:
-      POSTGRES_DB: ${DB_PROD_NAME}
-      POSTGRES_USER: ${DB_PROD_USER}
-      POSTGRES_PASSWORD: ${DB_PROD_PASSWORD}
-    volumes:
-      - db-prod-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d ${DB_PROD_NAME} -U ${DB_PROD_USER}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # -------------------------------------------------------
-  # 🟩 TEST-DATABAS
-  # -------------------------------------------------------
-  db-test:
-    image: postgres:14-alpine
-    restart: always
-    environment:
-      POSTGRES_DB: ${DB_TEST_NAME}
-      POSTGRES_USER: ${DB_TEST_USER}
-      POSTGRES_PASSWORD: ${DB_TEST_PASSWORD}
-    volumes:
-      - db-test-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d ${DB_TEST_NAME} -U ${DB_TEST_USER}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # -------------------------------------------------------
-  # 🟨 MINIO PRODUKTION
-  # -------------------------------------------------------
-  minio-prod:
-    image: minio/minio
-    restart: always
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_PROD_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_PROD_PASSWORD}
-    volumes:
-      - minio-prod-data:/data
+  minio:
+    image: minio/minio:latest
+    container_name: apab-minio
     ports:
       - "9000:9000"
       - "9001:9001"
-
-  # -------------------------------------------------------
-  # 🟧 MINIO TEST
-  # -------------------------------------------------------
-  minio-test:
-    image: minio/minio
-    restart: always
-    command: server /data --console-address ":9003"
     environment:
-      MINIO_ROOT_USER: ${MINIO_TEST_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_TEST_PASSWORD}
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
     volumes:
-      - minio-test-data:/data
-    ports:
-      - "9002:9000"
-      - "9003:9003"
+      - minio_data:/data
+    command: server /data --console-address ":9001"
 
-  # -------------------------------------------------------
-  # 🟥 APP (Flask backend)
-  # -------------------------------------------------------
   app:
     build: .
-    restart: always
-    depends_on:
-      db-prod:
-        condition: service_healthy
-      db-test:
-        condition: service_healthy
-      minio-prod:
-        condition: service_started
-      minio-test:
-        condition: service_started
+    container_name: apab-app
     ports:
-      - "3000:8000"
+      - "5000:8000"
     environment:
-      SECRET_KEY: ${APP_SECRET_KEY}
-
-      # Miljö
-      TEST_ENV: "${TEST_ENV}"
-
-      # Databaser
-      DATABASE_URL: "postgres://${DB_PROD_USER}:${DB_PROD_PASSWORD}@db-prod:5432/${DB_PROD_NAME}"
-      DATABASE_URL_TEST: "postgres://${DB_TEST_USER}:${DB_TEST_PASSWORD}@db-test:5432/${DB_TEST_NAME}"
-
-      # Minio Endpoints (utan http://)
-      MINIO_PROD_ENDPOINT: "minio-prod:9000"
-      MINIO_TEST_ENDPOINT: "minio-test:9000"
-
-      MINIO_PROD_ACCESS: ${MINIO_PROD_USER}
-      MINIO_PROD_SECRET: ${MINIO_PROD_PASSWORD}
-
-      MINIO_TEST_ACCESS: ${MINIO_TEST_USER}
-      MINIO_TEST_SECRET: ${MINIO_TEST_PASSWORD}
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_SECURE=false
+    depends_on:
+      - minio
+    volumes:
+      - .:/app
 
 volumes:
-  db-prod-data:
-  db-test-data:
-  minio-prod-data:
-  minio-test-data:
+  minio_data:
